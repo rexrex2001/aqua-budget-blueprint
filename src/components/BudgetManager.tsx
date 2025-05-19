@@ -7,7 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
+import { calculateExpenseProjection, calculateBudgetProjection } from "@/utils/projectionUtils";
 
 const categories = [
   "Food & Dining",
@@ -25,12 +27,23 @@ const categories = [
 
 const BudgetManager = () => {
   const { userData, addBudget, deleteBudget } = useUser();
+  const [showProjections, setShowProjections] = useState(false);
   
   const [newBudget, setNewBudget] = useState({
     category: "",
     amount: "",
     period: "monthly" as "daily" | "weekly" | "monthly",
   });
+
+  // Calculate expense projections for budget analysis
+  const projectedExpenses = calculateExpenseProjection(userData.expenses, 90);
+  
+  // Calculate budget projections using greedy algorithm
+  const budgetProjections = calculateBudgetProjection(
+    userData.budgets,
+    userData.expenses,
+    projectedExpenses
+  );
 
   // Helper function to calculate spending by category
   const getSpendingByCategory = (category: string, period: "daily" | "weekly" | "monthly") => {
@@ -102,7 +115,18 @@ const BudgetManager = () => {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-finance-text">Budget Manager</h1>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+        <h1 className="text-2xl font-bold text-finance-text">Budget Manager</h1>
+        
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={() => setShowProjections(!showProjections)}
+          className="text-xs"
+        >
+          {showProjections ? "Hide Projections" : "Show Projections"}
+        </Button>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-1">
@@ -134,7 +158,7 @@ const BudgetManager = () => {
                 <Label htmlFor="amount">Budget Amount</Label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
-                    {userData.preferences.currency}
+                    ₱
                   </span>
                   <Input
                     id="amount"
@@ -201,7 +225,7 @@ const BudgetManager = () => {
                       
                       <div className="flex justify-between items-center text-sm">
                         <span>
-                          {userData.preferences.currency} {spent.toFixed(2)} / {budget.amount.toFixed(2)}
+                          ₱ {spent.toFixed(2)} / {budget.amount.toFixed(2)}
                         </span>
                         <span className={percentage >= 100 ? "text-red-500" : "text-green-600"}>
                           {percentage}%
@@ -229,6 +253,74 @@ const BudgetManager = () => {
           </CardContent>
         </Card>
       </div>
+
+      {showProjections && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Budget Projections</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              See how your expenses will affect your budget in the future
+            </p>
+          </CardHeader>
+          <CardContent>
+            {budgetProjections.length > 0 ? (
+              <div className="space-y-6">
+                {budgetProjections.map((projection) => (
+                  <div key={projection.id} className="space-y-3">
+                    <div>
+                      <span className="font-medium">{projection.category}</span>
+                      <span className="text-xs text-muted-foreground ml-2">
+                        ({projection.period})
+                      </span>
+                    </div>
+                    
+                    <ScrollArea className="h-40 w-full rounded-md border">
+                      <div className="p-4 space-y-4">
+                        {projection.projections.length > 0 ? (
+                          projection.projections.map((period: any, index: number) => {
+                            const isOverBudget = period.amount > projection.amount;
+                            
+                            return (
+                              <div key={`${projection.id}-${period.period}`} className="space-y-1">
+                                <div className="flex justify-between items-center text-sm">
+                                  <span className="font-medium">{period.label}</span>
+                                  <span className={isOverBudget ? "text-red-500" : "text-green-600"}>
+                                    ₱ {period.amount.toFixed(2)}
+                                  </span>
+                                </div>
+                                
+                                <Progress 
+                                  value={period.percentage}
+                                  className={`h-1.5 ${
+                                    isOverBudget ? "bg-red-200" : period.percentage > 80 ? "bg-amber-200" : "bg-green-200"
+                                  }`}
+                                />
+                                
+                                <div className="text-xs text-right text-muted-foreground">
+                                  {isOverBudget ? "Over budget" : `${period.percentage}% of budget`}
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <p className="text-center text-muted-foreground py-4">
+                            Not enough data for projections
+                          </p>
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-10">
+                <p className="text-muted-foreground">No budget projections available</p>
+                <p className="text-xs text-muted-foreground mt-2">Create budgets to see projections</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

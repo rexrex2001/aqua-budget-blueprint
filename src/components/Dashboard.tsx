@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useUser } from "@/context/UserContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -90,7 +91,7 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-finance-blue">
-              {userData.preferences.currency} {timeFrameTotal.toFixed(2)}
+              ₱ {timeFrameTotal.toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               {timeFrameExpenses.length} transactions
@@ -107,7 +108,7 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-finance-blue">
-              {userData.preferences.currency} {totalBudgets.toFixed(2)}
+              ₱ {totalBudgets.toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               {userData.budgets.length} budget categories
@@ -124,7 +125,7 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${remainingBudget >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {userData.preferences.currency} {remainingBudget.toFixed(2)}
+              ₱ {remainingBudget.toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               {remainingBudget >= 0 ? 'Under budget' : 'Over budget'}

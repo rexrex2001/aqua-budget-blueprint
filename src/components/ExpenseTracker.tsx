@@ -7,8 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { calculateExpenseProjection } from "@/utils/projectionUtils";
 
 type TimeFrame = "daily" | "weekly" | "monthly";
 
@@ -29,6 +31,7 @@ const categories = [
 const ExpenseTracker = () => {
   const { userData, addExpense, deleteExpense } = useUser();
   const [timeFrame, setTimeFrame] = useState<TimeFrame>(userData.preferences.defaultView);
+  const [showProjections, setShowProjections] = useState(false);
   
   const [newExpense, setNewExpense] = useState({
     amount: "",
@@ -36,6 +39,9 @@ const ExpenseTracker = () => {
     description: "",
     date: format(new Date(), "yyyy-MM-dd"),
   });
+
+  // Calculate projections using greedy algorithm
+  const projectedExpenses = calculateExpenseProjection(userData.expenses, 90, timeFrame);
 
   // Filter expenses based on the selected timeframe
   const filterExpensesByTimeFrame = () => {
@@ -100,13 +106,24 @@ const ExpenseTracker = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
         <h1 className="text-2xl font-bold text-finance-text">Expense Tracker</h1>
         
-        <Tabs value={timeFrame} onValueChange={(value) => setTimeFrame(value as TimeFrame)} className="w-full sm:w-auto mt-4 sm:mt-0">
-          <TabsList>
-            <TabsTrigger value="daily">Daily</TabsTrigger>
-            <TabsTrigger value="weekly">Weekly</TabsTrigger>
-            <TabsTrigger value="monthly">Monthly</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex gap-2 items-center">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setShowProjections(!showProjections)}
+            className="text-xs"
+          >
+            {showProjections ? "Hide Projections" : "Show Projections"}
+          </Button>
+          
+          <Tabs value={timeFrame} onValueChange={(value) => setTimeFrame(value as TimeFrame)} className="w-full sm:w-auto mt-4 sm:mt-0">
+            <TabsList>
+              <TabsTrigger value="daily">Daily</TabsTrigger>
+              <TabsTrigger value="weekly">Weekly</TabsTrigger>
+              <TabsTrigger value="monthly">Monthly</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -120,7 +137,7 @@ const ExpenseTracker = () => {
                 <Label htmlFor="amount">Amount</Label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
-                    {userData.preferences.currency}
+                    ₱
                   </span>
                   <Input
                     id="amount"
@@ -203,7 +220,7 @@ const ExpenseTracker = () => {
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-lg font-medium">
-                        {userData.preferences.currency} {expense.amount.toFixed(2)}
+                        ₱ {expense.amount.toFixed(2)}
                       </div>
                       <Button
                         variant="ghost"
@@ -232,6 +249,52 @@ const ExpenseTracker = () => {
           </CardContent>
         </Card>
       </div>
+
+      {showProjections && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Expense Projections</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Based on your spending patterns, here are projected future expenses
+            </p>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-80 w-full rounded-md border p-4">
+              <div className="space-y-4 pr-4">
+                {projectedExpenses.length > 0 ? (
+                  projectedExpenses.map((expense) => (
+                    <div
+                      key={expense.id}
+                      className="flex justify-between items-center p-3 rounded-md bg-blue-50 hover:bg-blue-100 border border-dashed border-blue-200"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="h-10 w-10 rounded-full bg-blue-100 text-blue-800 flex items-center justify-center font-bold">
+                          {expense.category.charAt(0)}
+                        </div>
+                        <div>
+                          <div className="font-medium">{expense.category}</div>
+                          <div className="text-sm text-muted-foreground">{expense.description}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {format(new Date(expense.date), "MMM d, yyyy")}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-lg font-medium text-blue-800">
+                        ₱ {expense.amount.toFixed(2)}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-10">
+                    <p className="text-muted-foreground">Not enough data to generate expense projections</p>
+                    <p className="text-xs text-muted-foreground mt-2">Add more expenses to improve prediction accuracy</p>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

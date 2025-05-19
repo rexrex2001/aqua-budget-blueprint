@@ -7,6 +7,7 @@ export type ExpenseType = {
   category: string;
   description: string;
   date: string;
+  isProjected?: boolean;
 };
 
 export type BudgetType = {
@@ -30,7 +31,7 @@ export type UserDataType = {
 type UserContextType = {
   userData: UserDataType;
   setUserData: React.Dispatch<React.SetStateAction<UserDataType>>;
-  addExpense: (expense: Omit<ExpenseType, "id">) => void;
+  addExpense: (expense: Omit<ExpenseType, "id" | "isProjected">) => void;
   deleteExpense: (id: string) => void;
   addBudget: (budget: Omit<BudgetType, "id">) => void;
   deleteBudget: (id: string) => void;
@@ -43,7 +44,7 @@ const defaultUserData: UserDataType = {
   expenses: [],
   budgets: [],
   preferences: {
-    currency: "USD",
+    currency: "₱", // Changed from USD to Php (Philippine Peso)
     defaultView: "monthly",
   },
 };
@@ -60,10 +61,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem("financeUserData", JSON.stringify(userData));
   }, [userData]);
 
-  const addExpense = (expense: Omit<ExpenseType, "id">) => {
+  const addExpense = (expense: Omit<ExpenseType, "id" | "isProjected">) => {
     const newExpense = {
       ...expense,
       id: Date.now().toString(),
+      isProjected: false,
     };
     setUserData((prev) => ({
       ...prev,

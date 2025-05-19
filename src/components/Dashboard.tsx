@@ -1,38 +1,22 @@
-
 import { useState } from "react";
 import { useUser } from "@/context/UserContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Chart,
-  ChartConfiguration,
-  LineElement,
-  BarElement,
-  PointElement,
-  BarController,
-  LineController,
-  CategoryScale,
-  LinearScale,
+import { 
+  BarChart, 
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
   Tooltip,
   Legend,
-} from "@/components/ui/chart";
+  ResponsiveContainer 
+} from "recharts";
 import { 
   ChartLine,
   Calendar,
   DollarSign 
 } from "lucide-react";
-
-Chart.register(
-  LineElement,
-  BarElement,
-  PointElement,
-  BarController,
-  LineController,
-  CategoryScale,
-  LinearScale,
-  Tooltip,
-  Legend
-);
 
 type TimeFrame = "daily" | "weekly" | "monthly";
 
@@ -76,35 +60,11 @@ const Dashboard = () => {
   const categories = Object.keys(categoryTotals);
   const categoryAmounts = categories.map(category => categoryTotals[category]);
 
-  // Chart data
-  const chartData: ChartConfiguration = {
-    type: 'bar',
-    data: {
-      labels: categories.length > 0 ? categories : ['No Data'],
-      datasets: [
-        {
-          label: 'Expenses by Category',
-          data: categoryAmounts.length > 0 ? categoryAmounts : [0],
-          backgroundColor: 'rgba(59, 130, 246, 0.6)',
-          borderColor: '#3B82F6',
-          borderWidth: 1,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: {
-          position: 'top',
-        },
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-        },
-      },
-    },
-  };
+  // Chart data - reformatted for Recharts
+  const chartData = categories.map(category => ({
+    name: category,
+    amount: categoryTotals[category]
+  }));
 
   return (
     <div className="space-y-6">
@@ -180,7 +140,19 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent className="h-80">
             {categories.length > 0 ? (
-              <Chart {...chartData} />
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart 
+                  data={chartData} 
+                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="amount" fill="#3B82F6" />
+                </BarChart>
+              </ResponsiveContainer>
             ) : (
               <div className="flex items-center justify-center h-full">
                 <p className="text-muted-foreground">No expense data available for the selected time frame</p>

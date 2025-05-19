@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -52,15 +53,22 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
-				sidebar: {
-					DEFAULT: 'hsl(var(--sidebar-background))',
-					foreground: 'hsl(var(--sidebar-foreground))',
-					primary: 'hsl(var(--sidebar-primary))',
-					'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
-					accent: 'hsl(var(--sidebar-accent))',
-					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
-					border: 'hsl(var(--sidebar-border))',
-					ring: 'hsl(var(--sidebar-ring))'
+				// Theme-specific colors
+				finance: {
+					blue: {
+						light: '#93C5FD',
+						DEFAULT: '#3B82F6',
+						dark: '#1D4ED8',
+					},
+					gray: {
+						light: '#F1F5F9',
+						DEFAULT: '#CBD5E1',
+						dark: '#64748B',
+					},
+					text: {
+						DEFAULT: '#1E293B',
+						muted: '#64748B',
+					}
 				}
 			},
 			borderRadius: {

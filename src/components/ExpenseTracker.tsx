@@ -1,0 +1,239 @@
+
+import { useState } from "react";
+import { useUser } from "@/context/UserContext";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { format } from "date-fns";
+import { toast } from "sonner";
+
+type TimeFrame = "daily" | "weekly" | "monthly";
+
+const categories = [
+  "Food & Dining",
+  "Transportation",
+  "Housing",
+  "Utilities",
+  "Entertainment",
+  "Healthcare",
+  "Shopping",
+  "Personal Care",
+  "Education",
+  "Travel",
+  "Other"
+];
+
+const ExpenseTracker = () => {
+  const { userData, addExpense, deleteExpense } = useUser();
+  const [timeFrame, setTimeFrame] = useState<TimeFrame>(userData.preferences.defaultView);
+  
+  const [newExpense, setNewExpense] = useState({
+    amount: "",
+    category: "",
+    description: "",
+    date: format(new Date(), "yyyy-MM-dd"),
+  });
+
+  // Filter expenses based on the selected timeframe
+  const filterExpensesByTimeFrame = () => {
+    const now = new Date();
+    let startDate: Date;
+
+    if (timeFrame === "daily") {
+      startDate = new Date(now);
+      startDate.setHours(0, 0, 0, 0);
+    } else if (timeFrame === "weekly") {
+      startDate = new Date(now);
+      startDate.setDate(now.getDate() - now.getDay());
+      startDate.setHours(0, 0, 0, 0);
+    } else {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    }
+
+    return userData.expenses.filter(expense => new Date(expense.date) >= startDate)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  };
+
+  const filteredExpenses = filterExpensesByTimeFrame();
+
+  const handleExpenseSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!newExpense.amount || !newExpense.category || !newExpense.date) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    const amount = parseFloat(newExpense.amount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+
+    addExpense({
+      amount,
+      category: newExpense.category,
+      description: newExpense.description,
+      date: newExpense.date,
+    });
+
+    toast.success("Expense added successfully");
+
+    setNewExpense({
+      amount: "",
+      category: "",
+      description: "",
+      date: format(new Date(), "yyyy-MM-dd"),
+    });
+  };
+
+  const handleDeleteExpense = (id: string) => {
+    deleteExpense(id);
+    toast.success("Expense deleted successfully");
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+        <h1 className="text-2xl font-bold text-finance-text">Expense Tracker</h1>
+        
+        <Tabs value={timeFrame} onValueChange={(value) => setTimeFrame(value as TimeFrame)} className="w-full sm:w-auto mt-4 sm:mt-0">
+          <TabsList>
+            <TabsTrigger value="daily">Daily</TabsTrigger>
+            <TabsTrigger value="weekly">Weekly</TabsTrigger>
+            <TabsTrigger value="monthly">Monthly</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-1">
+          <CardHeader>
+            <CardTitle>Add New Expense</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleExpenseSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="amount">Amount</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
+                    {userData.preferences.currency}
+                  </span>
+                  <Input
+                    id="amount"
+                    type="number"
+                    placeholder="0.00"
+                    value={newExpense.amount}
+                    onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="category">Category</Label>
+                <Select
+                  value={newExpense.category}
+                  onValueChange={(value) => setNewExpense({ ...newExpense, category: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Input
+                  id="description"
+                  placeholder="Description"
+                  value={newExpense.description}
+                  onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="date">Date</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={newExpense.date}
+                  onChange={(e) => setNewExpense({ ...newExpense, date: e.target.value })}
+                />
+              </div>
+
+              <Button type="submit" className="w-full">Add Expense</Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Recent Expenses</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {filteredExpenses.length > 0 ? (
+                filteredExpenses.map((expense) => (
+                  <div
+                    key={expense.id}
+                    className="flex justify-between items-center p-3 rounded-md bg-slate-50 hover:bg-slate-100"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="h-10 w-10 rounded-full bg-finance-blue-light text-finance-blue-dark flex items-center justify-center font-bold">
+                        {expense.category.charAt(0)}
+                      </div>
+                      <div>
+                        <div className="font-medium">{expense.category}</div>
+                        <div className="text-sm text-muted-foreground">{expense.description || "No description"}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {format(new Date(expense.date), "MMM d, yyyy")}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-lg font-medium">
+                        {userData.preferences.currency} {expense.amount.toFixed(2)}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteExpense(expense.id)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-10">
+                  <p className="text-muted-foreground">No expenses found for the selected time period</p>
+                  <Button 
+                    variant="outline" 
+                    className="mt-2"
+                    onClick={() => setTimeFrame("monthly")}
+                  >
+                    View All Expenses
+                  </Button>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+export default ExpenseTracker;

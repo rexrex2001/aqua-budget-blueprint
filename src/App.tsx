@@ -9,7 +9,10 @@ import Index from "./pages/Index";
 import Expenses from "./pages/Expenses";
 import Budgets from "./pages/Budgets";
 import Profile from "./pages/Profile";
+import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import { AuthProvider } from "./context/AuthContext";
+import RouteGuard from "./components/RouteGuard";
 
 const queryClient = new QueryClient();
 
@@ -19,15 +22,44 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Layout>
+        <AuthProvider>
           <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/expenses" element={<Expenses />} />
-            <Route path="/budgets" element={<Budgets />} />
-            <Route path="/profile" element={<Profile />} />
+            <Route path="/auth" element={
+              <RouteGuard requireAuth={false}>
+                <Auth />
+              </RouteGuard>
+            } />
+            <Route path="/" element={
+              <RouteGuard>
+                <Layout>
+                  <Index />
+                </Layout>
+              </RouteGuard>
+            } />
+            <Route path="/expenses" element={
+              <RouteGuard>
+                <Layout>
+                  <Expenses />
+                </Layout>
+              </RouteGuard>
+            } />
+            <Route path="/budgets" element={
+              <RouteGuard>
+                <Layout>
+                  <Budgets />
+                </Layout>
+              </RouteGuard>
+            } />
+            <Route path="/profile" element={
+              <RouteGuard>
+                <Layout>
+                  <Profile />
+                </Layout>
+              </RouteGuard>
+            } />
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </Layout>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

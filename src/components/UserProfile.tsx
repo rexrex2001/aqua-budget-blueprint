@@ -1,14 +1,17 @@
 
 import { useState, useEffect } from "react";
 import { useUser } from "@/context/UserContext";
+import { useAuth } from "@/context/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const currencies = [
+  { code: "PHP", symbol: "₱", name: "Philippine Peso" },
   { code: "USD", symbol: "$", name: "US Dollar" },
   { code: "EUR", symbol: "€", name: "Euro" },
   { code: "GBP", symbol: "£", name: "British Pound" },
@@ -20,10 +23,14 @@ const currencies = [
 
 const UserProfile = () => {
   const { userData, updateUserProfile } = useUser();
+  const { user } = useAuth();
+  
+  const [username, setUsername] = useState("");
+  const [loading, setLoading] = useState(false);
   
   const [formData, setFormData] = useState({
     name: userData.name,
-    email: userData.email,
+    email: user?.email || userData.email,
     currency: userData.preferences.currency,
     defaultView: userData.preferences.defaultView,
   });
@@ -31,13 +38,41 @@ const UserProfile = () => {
   useEffect(() => {
     setFormData({
       name: userData.name,
-      email: userData.email,
+      email: user?.email || userData.email,
       currency: userData.preferences.currency,
       defaultView: userData.preferences.defaultView,
     });
-  }, [userData]);
+    
+    // Fetch username from profiles if we have an authenticated user
+    if (user) {
+      fetchUserProfile();
+    }
+  }, [userData, user]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const fetchUserProfile = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('id', user?.id)
+        .single();
+        
+      if (error) {
+        throw error;
+      }
+      
+      if (data) {
+        setUsername(data.username);
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.name || !formData.email) {
@@ -51,7 +86,8 @@ const UserProfile = () => {
       toast.error("Please enter a valid email address");
       return;
     }
-
+    
+    // Update local storage user data
     updateUserProfile(
       formData.name,
       formData.email, 
@@ -60,6 +96,24 @@ const UserProfile = () => {
         defaultView: formData.defaultView as "daily" | "weekly" | "monthly",
       }
     );
+    
+    // If authenticated, update profile in database
+    if (user) {
+      try {
+        setLoading(true);
+        const { error } = await supabase
+          .from('profiles')
+          .update({ username: username })
+          .eq('id', user.id);
+          
+        if (error) throw error;
+      } catch (error: any) {
+        toast.error(error.message || "Error updating profile");
+        return;
+      } finally {
+        setLoading(false);
+      }
+    }
 
     toast.success("Profile updated successfully");
   };
@@ -81,12 +135,25 @@ const UserProfile = () => {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
+                {user && (
+                  <div className="space-y-2">
+                    <Label htmlFor="username">Username</Label>
+                    <Input
+                      id="username"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      disabled={loading}
+                    />
+                  </div>
+                )}
+
                 <div className="space-y-2">
-                  <Label htmlFor="name">Name</Label>
+                  <Label htmlFor="name">Display Name</Label>
                   <Input
                     id="name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    disabled={loading}
                   />
                 </div>
 
@@ -97,7 +164,13 @@ const UserProfile = () => {
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    disabled={user !== null || loading}
                   />
+                  {user && (
+                    <p className="text-sm text-muted-foreground">
+                      Email cannot be changed when authenticated with Supabase
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -105,6 +178,7 @@ const UserProfile = () => {
                   <Select
                     value={formData.currency}
                     onValueChange={(value) => setFormData({ ...formData, currency: value })}
+                    disabled={loading}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select currency" />
@@ -124,6 +198,7 @@ const UserProfile = () => {
                   <Select
                     value={formData.defaultView}
                     onValueChange={(value) => setFormData({ ...formData, defaultView: value as "daily" | "weekly" | "monthly" })}
+                    disabled={loading}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select default view" />
@@ -136,7 +211,9 @@ const UserProfile = () => {
                   </Select>
                 </div>
 
-                <Button type="submit">Save Changes</Button>
+                <Button type="submit" disabled={loading}>
+                  {loading ? "Saving..." : "Save Changes"}
+                </Button>
               </form>
             </CardContent>
           </Card>
@@ -202,9 +279,16 @@ const UserProfile = () => {
                 <div>
                   <div className="text-sm text-muted-foreground">Total Spent</div>
                   <div className="text-2xl font-bold text-finance-blue">
-                    {userData.preferences.currency} {totalSpent.toFixed(2)}
+                    ₱ {totalSpent.toFixed(2)}
                   </div>
                 </div>
+
+                {user && (
+                  <div className="mt-4 pt-4 border-t">
+                    <div className="text-sm text-muted-foreground">Authenticated as</div>
+                    <div className="text-md font-medium">{user.email}</div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

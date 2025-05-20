@@ -10,6 +10,8 @@ import Expenses from "./pages/Expenses";
 import Budgets from "./pages/Budgets";
 import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
+import Goals from "./pages/Goals"; // New goals page
+import Community from "./pages/Community"; // New community page
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./context/AuthContext";
 import RouteGuard from "./components/RouteGuard";
@@ -24,10 +26,13 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
+            {/* Auth route now wrapped with Layout */}
             <Route path="/auth" element={
-              <RouteGuard requireAuth={false}>
-                <Auth />
-              </RouteGuard>
+              <Layout>
+                <RouteGuard requireAuth={false}>
+                  <Auth />
+                </RouteGuard>
+              </Layout>
             } />
             <Route path="/" element={
               <Layout>
@@ -42,6 +47,17 @@ const App = () => (
             <Route path="/budgets" element={
               <Layout>
                 <Budgets />
+              </Layout>
+            } />
+            {/* New Goals and Community routes */}
+            <Route path="/goals" element={
+              <Layout>
+                <Goals />
+              </Layout>
+            } />
+            <Route path="/community" element={
+              <Layout>
+                <Community />
               </Layout>
             } />
             <Route path="/profile" element={

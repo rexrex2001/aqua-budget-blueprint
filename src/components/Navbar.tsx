@@ -1,6 +1,7 @@
+
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { User } from "lucide-react";
+import { User, Target, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/context/AuthContext";
 
+// Component: navigation bar for site-wide navigation
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, signOut } = useAuth();
@@ -44,6 +46,24 @@ const Navbar = () => {
             className="text-finance-text hover:text-finance-blue"
           >
             Budgets
+          </Link>
+          <Link
+            to="/goals"
+            className="text-finance-text hover:text-finance-blue"
+          >
+            <div className="flex items-center">
+              <Target className="h-4 w-4 mr-1" />
+              Goals
+            </div>
+          </Link>
+          <Link
+            to="/community"
+            className="text-finance-text hover:text-finance-blue"
+          >
+            <div className="flex items-center">
+              <Users className="h-4 w-4 mr-1" />
+              Community
+            </div>
           </Link>
 
           <DropdownMenu>
@@ -81,7 +101,7 @@ const Navbar = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuLabel>Navigation</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
                 <Link to="/">Home</Link>
@@ -92,6 +112,13 @@ const Navbar = () => {
               <DropdownMenuItem asChild>
                 <Link to="/budgets">Budgets</Link>
               </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/goals">Goals</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/community">Community</Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
                 <Link to="/profile">Profile</Link>
               </DropdownMenuItem>

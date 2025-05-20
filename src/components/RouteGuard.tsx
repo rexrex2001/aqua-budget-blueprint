@@ -1,3 +1,4 @@
+
 import { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -8,7 +9,7 @@ interface RouteGuardProps {
 }
 
 // Component to protect routes
-const RouteGuard = ({ children, requireAuth = true }: RouteGuardProps) => {
+const RouteGuard = ({ children, requireAuth = false }: RouteGuardProps) => {
   const { user, loading } = useAuth();
   
   // If still loading, show nothing or a loading spinner
@@ -22,7 +23,7 @@ const RouteGuard = ({ children, requireAuth = true }: RouteGuardProps) => {
   }
   
   // If requireAuth is false and we have a user (login/register pages), redirect to home
-  if (!requireAuth && user) {
+  if (!requireAuth && user && window.location.pathname === "/auth") {
     return <Navigate to="/" replace />;
   }
   

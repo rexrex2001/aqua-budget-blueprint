@@ -30,28 +30,22 @@ const App = () => (
               </RouteGuard>
             } />
             <Route path="/" element={
-              <RouteGuard>
-                <Layout>
-                  <Index />
-                </Layout>
-              </RouteGuard>
+              <Layout>
+                <Index />
+              </Layout>
             } />
             <Route path="/expenses" element={
-              <RouteGuard>
-                <Layout>
-                  <Expenses />
-                </Layout>
-              </RouteGuard>
+              <Layout>
+                <Expenses />
+              </Layout>
             } />
             <Route path="/budgets" element={
-              <RouteGuard>
-                <Layout>
-                  <Budgets />
-                </Layout>
-              </RouteGuard>
+              <Layout>
+                <Budgets />
+              </Layout>
             } />
             <Route path="/profile" element={
-              <RouteGuard>
+              <RouteGuard requireAuth={true}>
                 <Layout>
                   <Profile />
                 </Layout>

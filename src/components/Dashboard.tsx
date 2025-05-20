@@ -1,8 +1,13 @@
 
 import { useState } from "react";
 import { useUser } from "@/context/UserContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/context/AuthContext";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Link } from "react-router-dom";
 import { 
   BarChart, 
   Bar,
@@ -16,14 +21,45 @@ import {
 import { 
   ChartLine,
   Calendar,
-  DollarSign 
+  DollarSign,
+  Calculator,
+  Users,
+  Target,
+  ArrowRight
 } from "lucide-react";
 
 type TimeFrame = "daily" | "weekly" | "monthly";
 
 const Dashboard = () => {
   const { userData } = useUser();
+  const { user } = useAuth();
   const [timeFrame, setTimeFrame] = useState<TimeFrame>(userData.preferences.defaultView);
+  
+  // Quick calculator state for guests
+  const [amount1, setAmount1] = useState<number>(0);
+  const [amount2, setAmount2] = useState<number>(0);
+  const [operation, setOperation] = useState<string>("add");
+  const [result, setResult] = useState<number | null>(null);
+
+  // Calculate result for quick calculator
+  const calculateResult = () => {
+    switch(operation) {
+      case "add":
+        setResult(amount1 + amount2);
+        break;
+      case "subtract":
+        setResult(amount1 - amount2);
+        break;
+      case "multiply":
+        setResult(amount1 * amount2);
+        break;
+      case "divide":
+        setResult(amount2 !== 0 ? amount1 / amount2 : 0);
+        break;
+      default:
+        setResult(0);
+    }
+  };
 
   // Calculate totals
   const totalExpenses = userData.expenses.reduce((sum, expense) => sum + expense.amount, 0);
@@ -69,6 +105,110 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
+      {/* Welcome Section for All Users */}
+      <Card className="border-finance-blue">
+        <CardHeader>
+          <CardTitle className="text-2xl">Welcome to FinTrack - Your Financial Companion</CardTitle>
+          <CardDescription>
+            Take control of your finances with our comprehensive budgeting and expense tracking tools
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex flex-col items-center p-4 border rounded-lg">
+              <Calculator className="h-8 w-8 text-finance-blue mb-2" />
+              <h3 className="text-lg font-medium">Budget Planning</h3>
+              <p className="text-sm text-muted-foreground text-center">Create and manage your budget categories</p>
+            </div>
+            <div className="flex flex-col items-center p-4 border rounded-lg">
+              <ChartLine className="h-8 w-8 text-finance-blue mb-2" />
+              <h3 className="text-lg font-medium">Expense Tracking</h3>
+              <p className="text-sm text-muted-foreground text-center">Record and visualize your spending patterns</p>
+            </div>
+            <div className="flex flex-col items-center p-4 border rounded-lg">
+              <Target className="h-8 w-8 text-finance-blue mb-2" />
+              <h3 className="text-lg font-medium">Financial Goals</h3>
+              <p className="text-sm text-muted-foreground text-center">Set and achieve your financial objectives</p>
+            </div>
+          </div>
+          
+          {!user && (
+            <div className="mt-6 flex justify-center">
+              <Link to="/auth">
+                <Button className="bg-finance-blue hover:bg-blue-700">
+                  Create Account to Save Your Data <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      
+      {/* Quick Calculator for Guests */}
+      {!user && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Try Our Calculator</CardTitle>
+            <CardDescription>
+              This is a simple calculator to try our features. Create an account to access full features and save your data.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="amount1">First Amount (₱)</Label>
+                  <Input 
+                    id="amount1" 
+                    type="number" 
+                    value={amount1}
+                    onChange={(e) => setAmount1(Number(e.target.value))}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="operation">Operation</Label>
+                  <select 
+                    id="operation"
+                    className="w-full p-2 border rounded"
+                    value={operation}
+                    onChange={(e) => setOperation(e.target.value)}
+                  >
+                    <option value="add">Add</option>
+                    <option value="subtract">Subtract</option>
+                    <option value="multiply">Multiply</option>
+                    <option value="divide">Divide</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <Label htmlFor="amount2">Second Amount (₱)</Label>
+                  <Input 
+                    id="amount2" 
+                    type="number" 
+                    value={amount2}
+                    onChange={(e) => setAmount2(Number(e.target.value))}
+                  />
+                </div>
+                
+                <Button onClick={calculateResult}>Calculate</Button>
+              </div>
+              
+              <div className="flex flex-col items-center justify-center p-6 border rounded-lg">
+                <h3 className="text-lg font-medium mb-2">Result:</h3>
+                <p className="text-3xl font-bold text-finance-blue">
+                  {result !== null ? `₱ ${result.toFixed(2)}` : '—'}
+                </p>
+                <p className="mt-4 text-sm text-muted-foreground text-center">
+                  Create an account to access full budget planning and expense tracking features!
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Financial Overview - Show only for logged in users or simplified for guests */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
         <h1 className="text-2xl font-bold text-finance-text">Financial Dashboard</h1>
         
@@ -162,6 +302,46 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Feature Showcase */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Explore Our Features</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Link to="/expenses" className="block">
+              <div className="border rounded-lg p-4 h-full hover:bg-slate-50 transition-colors">
+                <ChartLine className="h-6 w-6 text-finance-blue mb-2" />
+                <h3 className="font-medium">Expense Tracker</h3>
+                <p className="text-sm text-muted-foreground">Record and categorize all your expenses</p>
+              </div>
+            </Link>
+            
+            <Link to="/budgets" className="block">
+              <div className="border rounded-lg p-4 h-full hover:bg-slate-50 transition-colors">
+                <DollarSign className="h-6 w-6 text-finance-blue mb-2" />
+                <h3 className="font-medium">Budget Planner</h3>
+                <p className="text-sm text-muted-foreground">Create and manage your budget categories</p>
+              </div>
+            </Link>
+            
+            <div className="border rounded-lg p-4 h-full opacity-70">
+              <Target className="h-6 w-6 text-finance-blue mb-2" />
+              <h3 className="font-medium">Goal Planning</h3>
+              <p className="text-sm text-muted-foreground">Set and track your financial goals</p>
+              <p className="text-xs text-muted-foreground mt-2">Coming soon</p>
+            </div>
+            
+            <div className="border rounded-lg p-4 h-full opacity-70">
+              <Users className="h-6 w-6 text-finance-blue mb-2" />
+              <h3 className="font-medium">Community</h3>
+              <p className="text-sm text-muted-foreground">Connect with others on your financial journey</p>
+              <p className="text-xs text-muted-foreground mt-2">Coming soon</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

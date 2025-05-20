@@ -73,10 +73,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) throw error;
       
-      if (data.user) {
-        toast.success("Account created successfully!");
-        navigate("/");
-      }
+      // Show success message and navigate to homepage instead of login
+      toast.success("Registration successful! A verification email has been sent to your email address. Please check your inbox and verify your account.");
+      navigate("/");
     } catch (error: any) {
       if (error.message.includes("already registered")) {
         toast.error("Email already registered. Please login instead.");
@@ -119,7 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) throw error;
       
       toast.success("Logged out successfully!");
-      navigate("/auth");
+      navigate("/");
     } catch (error: any) {
       toast.error(error.message || "Error signing out");
     } finally {

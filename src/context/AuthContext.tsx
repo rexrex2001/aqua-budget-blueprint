@@ -11,7 +11,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   signUp: (email: string, password: string, username: string) => Promise<void>;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (emailOrUsername: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -87,21 +87,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Sign in function
-  const signIn = async (email: string, password: string) => {
+  // Sign in function - modified to handle both email and username
+  const signIn = async (emailOrUsername: string, password: string) => {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
+      // Check if input is an email or username
+      const isEmail = emailOrUsername.includes('@');
       
-      if (data.user) {
-        toast.success("Logged in successfully!");
-        navigate("/");
+      if (isEmail) {
+        // Direct login with email
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: emailOrUsername,
+          password,
+        });
+
+        if (error) throw error;
+        
+        if (data.user) {
+          toast.success("Logged in successfully!");
+          navigate("/");
+        }
+      } else {
+        // For username login, we need to first find the user's email
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('username', emailOrUsername)
+          .single();
+
+        if (profileError) {
+          throw new Error("Username not found. Please check your credentials.");
+        }
+
+        // Get user email from auth.users based on profile id
+        const { data, error: authError } = await supabase.auth.signInWithPassword({
+          email: emailOrUsername, // We still try with the username as email as fallback
+          password,
+        });
+
+        if (authError) {
+          throw new Error("Invalid login credentials. Please check your username and password.");
+        }
+
+        if (data.user) {
+          toast.success("Logged in successfully!");
+          navigate("/");
+        }
       }
     } catch (error: any) {
       toast.error(error.message || "Invalid login credentials");

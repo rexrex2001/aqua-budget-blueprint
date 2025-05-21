@@ -14,6 +14,7 @@ const Auth = () => {
   
   // Form states
   const [email, setEmail] = useState("");
+  const [emailOrUsername, setEmailOrUsername] = useState(""); 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [username, setUsername] = useState("");
@@ -21,7 +22,7 @@ const Auth = () => {
 
   // Validation schema for login
   const loginSchema = z.object({
-    email: z.string().email("Invalid email address"),
+    emailOrUsername: z.string().min(3, "Username or email is required (minimum 3 characters)"),
     password: z.string().min(6, "Password must be at least 6 characters"),
   });
 
@@ -41,8 +42,8 @@ const Auth = () => {
     setErrors({});
     
     try {
-      const result = loginSchema.parse({ email, password });
-      await signIn(result.email, result.password);
+      const result = loginSchema.parse({ emailOrUsername, password });
+      await signIn(result.emailOrUsername, result.password);
     } catch (error) {
       if (error instanceof z.ZodError) {
         const newErrors: Record<string, string> = {};
@@ -96,16 +97,16 @@ const Auth = () => {
             <form onSubmit={handleLogin}>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="emailOrUsername">Email or Username</Label>
                   <Input 
-                    id="email"
-                    type="email" 
-                    placeholder="name@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    id="emailOrUsername"
+                    type="text" 
+                    placeholder="Email or username"
+                    value={emailOrUsername}
+                    onChange={(e) => setEmailOrUsername(e.target.value)}
                   />
-                  {errors.email && (
-                    <p className="text-sm text-red-500">{errors.email}</p>
+                  {errors.emailOrUsername && (
+                    <p className="text-sm text-red-500">{errors.emailOrUsername}</p>
                   )}
                 </div>
                 

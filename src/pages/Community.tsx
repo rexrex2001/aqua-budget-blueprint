@@ -33,7 +33,7 @@ interface Discussion {
   content: string;
   created_at: string;
   user_id: string;
-  profiles?: Profile;
+  profiles?: Profile | null;
   comment_count?: number;
 }
 
@@ -42,7 +42,7 @@ interface Comment {
   content: string;
   created_at: string;
   user_id: string;
-  profiles?: Profile;
+  profiles?: Profile | null;
 }
 
 const Community = () => {
@@ -85,6 +85,8 @@ const Community = () => {
       if (error) throw error;
 
       // Count comments for each discussion
+      const discussionsWithCounts: Discussion[] = [];
+      
       if (data) {
         for (let discussion of data) {
           const { count, error: countError } = await supabase
@@ -92,11 +94,15 @@ const Community = () => {
             .select('*', { count: 'exact', head: true })
             .eq('discussion_id', discussion.id);
 
-          if (!countError) {
-            discussion.comment_count = count || 0;
-          }
+          const discussionWithCount: Discussion = {
+            ...discussion,
+            comment_count: count || 0,
+            profiles: discussion.profiles || null
+          };
+          
+          discussionsWithCounts.push(discussionWithCount);
         }
-        setDiscussions(data);
+        setDiscussions(discussionsWithCounts);
       }
     } catch (error) {
       console.error('Error fetching discussions:', error);
@@ -120,7 +126,13 @@ const Community = () => {
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      setComments(data || []);
+      
+      const typedComments: Comment[] = data?.map(comment => ({
+        ...comment,
+        profiles: comment.profiles || null
+      })) || [];
+      
+      setComments(typedComments);
     } catch (error) {
       console.error('Error fetching comments:', error);
       toast.error('Failed to load comments');

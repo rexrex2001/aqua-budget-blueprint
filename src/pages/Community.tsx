@@ -24,7 +24,7 @@ import {
 interface Profile {
   id: string;
   username: string;
-  avatar_url?: string;
+  avatar_url?: string | null;
 }
 
 interface Discussion {
@@ -33,6 +33,7 @@ interface Discussion {
   content: string;
   created_at: string;
   user_id: string;
+  // Make profiles optional and handle it safely
   profiles?: Profile | null;
   comment_count?: number;
 }
@@ -42,6 +43,7 @@ interface Comment {
   content: string;
   created_at: string;
   user_id: string;
+  // Make profiles optional and handle it safely
   profiles?: Profile | null;
 }
 
@@ -78,7 +80,7 @@ const Community = () => {
         .from('discussions')
         .select(`
           *,
-          profiles:user_id (username, avatar_url)
+          profiles:user_id (id, username, avatar_url)
         `)
         .order('created_at', { ascending: false });
 
@@ -89,18 +91,28 @@ const Community = () => {
       
       if (data) {
         for (let discussion of data) {
+          // Handle the profile data safely
+          const discussionItem: Discussion = {
+            ...discussion,
+            // Default to null if profiles has an error
+            profiles: discussion.profiles && 'error' in discussion.profiles 
+              ? null
+              : discussion.profiles as Profile | null,
+            comment_count: 0
+          };
+          
           const { count, error: countError } = await supabase
             .from('comments')
             .select('*', { count: 'exact', head: true })
             .eq('discussion_id', discussion.id);
 
-          const discussionWithCount: Discussion = {
-            ...discussion,
-            comment_count: count || 0,
-            profiles: discussion.profiles || null
-          };
+          if (countError) {
+            console.error('Error fetching comment count:', countError);
+          } else {
+            discussionItem.comment_count = count || 0;
+          }
           
-          discussionsWithCounts.push(discussionWithCount);
+          discussionsWithCounts.push(discussionItem);
         }
         setDiscussions(discussionsWithCounts);
       }
@@ -120,16 +132,20 @@ const Community = () => {
         .from('comments')
         .select(`
           *,
-          profiles:user_id (username, avatar_url)
+          profiles:user_id (id, username, avatar_url)
         `)
         .eq('discussion_id', discussionId)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
       
+      // Handle each comment to ensure proper types
       const typedComments: Comment[] = data?.map(comment => ({
         ...comment,
-        profiles: comment.profiles || null
+        // Default to null if profiles has an error
+        profiles: comment.profiles && 'error' in comment.profiles
+          ? null
+          : comment.profiles as Profile | null
       })) || [];
       
       setComments(typedComments);

@@ -33,7 +33,6 @@ interface Discussion {
   content: string;
   created_at: string;
   user_id: string;
-  // Make profiles optional and handle it safely
   profiles?: Profile | null;
   comment_count?: number;
 }
@@ -43,8 +42,21 @@ interface Comment {
   content: string;
   created_at: string;
   user_id: string;
-  // Make profiles optional and handle it safely
   profiles?: Profile | null;
+}
+
+// Type guard to check if we have a profile error
+function isProfileError(obj: any): boolean {
+  return obj && typeof obj === 'object' && 'error' in obj;
+}
+
+// Helper function to safely extract profile data
+function safeProfile(profileData: any): Profile | null {
+  if (isProfileError(profileData)) {
+    // If it's an error, return a default profile
+    return null;
+  }
+  return profileData as Profile;
 }
 
 const Community = () => {
@@ -76,11 +88,12 @@ const Community = () => {
   const fetchDiscussions = async () => {
     setIsLoading(true);
     try {
+      // First, properly set up the join relationship
       const { data, error } = await supabase
         .from('discussions')
         .select(`
           *,
-          profiles:user_id (id, username, avatar_url)
+          profiles:user_id(id, username, avatar_url)
         `)
         .order('created_at', { ascending: false });
 
@@ -94,10 +107,8 @@ const Community = () => {
           // Handle the profile data safely
           const discussionItem: Discussion = {
             ...discussion,
-            // Default to null if profiles has an error
-            profiles: discussion.profiles && 'error' in discussion.profiles 
-              ? null
-              : discussion.profiles as Profile | null,
+            // Use the safe profile extraction helper
+            profiles: safeProfile(discussion.profiles),
             comment_count: 0
           };
           
@@ -132,7 +143,7 @@ const Community = () => {
         .from('comments')
         .select(`
           *,
-          profiles:user_id (id, username, avatar_url)
+          profiles:user_id(id, username, avatar_url)
         `)
         .eq('discussion_id', discussionId)
         .order('created_at', { ascending: true });
@@ -142,10 +153,8 @@ const Community = () => {
       // Handle each comment to ensure proper types
       const typedComments: Comment[] = data?.map(comment => ({
         ...comment,
-        // Default to null if profiles has an error
-        profiles: comment.profiles && 'error' in comment.profiles
-          ? null
-          : comment.profiles as Profile | null
+        // Use the safe profile extraction helper
+        profiles: safeProfile(comment.profiles)
       })) || [];
       
       setComments(typedComments);

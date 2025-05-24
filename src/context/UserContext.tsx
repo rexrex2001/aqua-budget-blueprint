@@ -44,7 +44,7 @@ const defaultUserData: UserDataType = {
   expenses: [],
   budgets: [],
   preferences: {
-    currency: "₱", // Changed from USD to Php (Philippine Peso)
+    currency: "₱", // Fixed to Philippine Peso
     defaultView: "monthly",
   },
 };
@@ -52,15 +52,9 @@ const defaultUserData: UserDataType = {
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [userData, setUserData] = useState<UserDataType>(() => {
-    const savedData = localStorage.getItem("financeUserData");
-    return savedData ? JSON.parse(savedData) : defaultUserData;
-  });
+  const [userData, setUserData] = useState<UserDataType>(defaultUserData);
 
-  useEffect(() => {
-    localStorage.setItem("financeUserData", JSON.stringify(userData));
-  }, [userData]);
-
+  // Remove localStorage usage - all data will come from Supabase
   const addExpense = (expense: Omit<ExpenseType, "id" | "isProjected">) => {
     const newExpense = {
       ...expense,
@@ -103,7 +97,10 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...prev,
       name,
       email,
-      preferences,
+      preferences: {
+        ...preferences,
+        currency: "₱", // Always force PHP currency
+      },
     }));
   };
 

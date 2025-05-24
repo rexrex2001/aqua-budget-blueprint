@@ -1,7 +1,8 @@
 
 import { useState } from "react";
-import { useUser } from "@/context/UserContext";
 import { useAuth } from "@/context/AuthContext";
+import { useExpenses } from "@/hooks/useExpenses";
+import { useBudgets } from "@/hooks/useBudgets";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -23,17 +24,17 @@ import {
   Calendar,
   DollarSign,
   Calculator,
-  Users,
-  Target,
+  FileText,
   ArrowRight
 } from "lucide-react";
 
 type TimeFrame = "daily" | "weekly" | "monthly";
 
 const Dashboard = () => {
-  const { userData } = useUser();
   const { user } = useAuth();
-  const [timeFrame, setTimeFrame] = useState<TimeFrame>(userData.preferences.defaultView);
+  const { expenses } = useExpenses();
+  const { budgets } = useBudgets();
+  const [timeFrame, setTimeFrame] = useState<TimeFrame>("monthly");
   
   // Quick calculator state for guests
   const [amount1, setAmount1] = useState<number>(0);
@@ -61,9 +62,9 @@ const Dashboard = () => {
     }
   };
 
-  // Calculate totals
-  const totalExpenses = userData.expenses.reduce((sum, expense) => sum + expense.amount, 0);
-  const totalBudgets = userData.budgets.reduce((sum, budget) => sum + budget.amount, 0);
+  // Calculate totals from Supabase data
+  const totalExpenses = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
+  const totalBudgets = budgets.reduce((sum, budget) => sum + Number(budget.amount), 0);
   const remainingBudget = totalBudgets - totalExpenses;
 
   // Get expenses for current timeframe
@@ -82,20 +83,19 @@ const Dashboard = () => {
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     }
 
-    return userData.expenses.filter(expense => new Date(expense.date) >= startDate);
+    return expenses.filter(expense => new Date(expense.date) >= startDate);
   };
 
   const timeFrameExpenses = getTimeFrameExpenses();
-  const timeFrameTotal = timeFrameExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const timeFrameTotal = timeFrameExpenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
 
   // Category breakdown
   const categoryTotals = timeFrameExpenses.reduce<Record<string, number>>((acc, expense) => {
-    acc[expense.category] = (acc[expense.category] || 0) + expense.amount;
+    acc[expense.category] = (acc[expense.category] || 0) + Number(expense.amount);
     return acc;
   }, {});
   
   const categories = Object.keys(categoryTotals);
-  const categoryAmounts = categories.map(category => categoryTotals[category]);
 
   // Chart data - reformatted for Recharts
   const chartData = categories.map(category => ({
@@ -106,36 +106,36 @@ const Dashboard = () => {
   return (
     <div className="space-y-6">
       {/* Welcome Section for All Users */}
-      <Card className="border-finance-blue">
+      <Card className="border-blue-200 bg-blue-50">
         <CardHeader>
-          <CardTitle className="text-2xl">Welcome to FinTrack - Your Financial Companion</CardTitle>
+          <CardTitle className="text-2xl text-blue-800">Welcome to FinTrack - Your Financial Companion</CardTitle>
           <CardDescription>
             Take control of your finances with our comprehensive budgeting and expense tracking tools
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="flex flex-col items-center p-4 border rounded-lg">
-              <Calculator className="h-8 w-8 text-finance-blue mb-2" />
+            <div className="flex flex-col items-center p-4 border border-blue-200 rounded-lg bg-white">
+              <Calculator className="h-8 w-8 text-blue-600 mb-2" />
               <h3 className="text-lg font-medium">Budget Planning</h3>
               <p className="text-sm text-muted-foreground text-center">Create and manage your budget categories</p>
             </div>
-            <div className="flex flex-col items-center p-4 border rounded-lg">
-              <ChartLine className="h-8 w-8 text-finance-blue mb-2" />
+            <div className="flex flex-col items-center p-4 border border-blue-200 rounded-lg bg-white">
+              <ChartLine className="h-8 w-8 text-blue-600 mb-2" />
               <h3 className="text-lg font-medium">Expense Tracking</h3>
               <p className="text-sm text-muted-foreground text-center">Record and visualize your spending patterns</p>
             </div>
-            <div className="flex flex-col items-center p-4 border rounded-lg">
-              <Target className="h-8 w-8 text-finance-blue mb-2" />
-              <h3 className="text-lg font-medium">Financial Goals</h3>
-              <p className="text-sm text-muted-foreground text-center">Set and achieve your financial objectives</p>
+            <div className="flex flex-col items-center p-4 border border-blue-200 rounded-lg bg-white">
+              <FileText className="h-8 w-8 text-blue-600 mb-2" />
+              <h3 className="text-lg font-medium">Financial Reports</h3>
+              <p className="text-sm text-muted-foreground text-center">Analyze your financial data with detailed reports</p>
             </div>
           </div>
           
           {!user && (
             <div className="mt-6 flex justify-center">
               <Link to="/auth">
-                <Button className="bg-finance-blue hover:bg-blue-700">
+                <Button className="bg-blue-600 hover:bg-blue-700">
                   Create Account to Save Your Data <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
@@ -196,7 +196,7 @@ const Dashboard = () => {
               
               <div className="flex flex-col items-center justify-center p-6 border rounded-lg">
                 <h3 className="text-lg font-medium mb-2">Result:</h3>
-                <p className="text-3xl font-bold text-finance-blue">
+                <p className="text-3xl font-bold text-blue-600">
                   {result !== null ? `₱ ${result.toFixed(2)}` : '—'}
                 </p>
                 <p className="mt-4 text-sm text-muted-foreground text-center">
@@ -208,9 +208,9 @@ const Dashboard = () => {
         </Card>
       )}
 
-      {/* Financial Overview - Show only for logged in users or simplified for guests */}
+      {/* Financial Overview */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-        <h1 className="text-2xl font-bold text-finance-text">Financial Dashboard</h1>
+        <h1 className="text-2xl font-bold text-blue-800">Financial Dashboard</h1>
         
         <Tabs value={timeFrame} onValueChange={(value) => setTimeFrame(value as TimeFrame)} className="w-full sm:w-auto mt-4 sm:mt-0">
           <TabsList>
@@ -230,7 +230,7 @@ const Dashboard = () => {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-finance-blue">
+            <div className="text-2xl font-bold text-red-600">
               ₱ {timeFrameTotal.toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -247,11 +247,11 @@ const Dashboard = () => {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-finance-blue">
+            <div className="text-2xl font-bold text-green-600">
               ₱ {totalBudgets.toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {userData.budgets.length} budget categories
+              {budgets.length} budget categories
             </p>
           </CardContent>
         </Card>
@@ -291,7 +291,7 @@ const Dashboard = () => {
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="amount" fill="#3B82F6" />
+                  <Bar dataKey="amount" fill="#ef4444" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -309,36 +309,30 @@ const Dashboard = () => {
           <CardTitle>Explore Our Features</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <Link to="/expenses" className="block">
-              <div className="border rounded-lg p-4 h-full hover:bg-slate-50 transition-colors">
-                <ChartLine className="h-6 w-6 text-finance-blue mb-2" />
+              <div className="border border-blue-200 rounded-lg p-4 h-full hover:bg-blue-50 transition-colors">
+                <ChartLine className="h-6 w-6 text-blue-600 mb-2" />
                 <h3 className="font-medium">Expense Tracker</h3>
                 <p className="text-sm text-muted-foreground">Record and categorize all your expenses</p>
               </div>
             </Link>
             
             <Link to="/budgets" className="block">
-              <div className="border rounded-lg p-4 h-full hover:bg-slate-50 transition-colors">
-                <DollarSign className="h-6 w-6 text-finance-blue mb-2" />
+              <div className="border border-blue-200 rounded-lg p-4 h-full hover:bg-blue-50 transition-colors">
+                <DollarSign className="h-6 w-6 text-blue-600 mb-2" />
                 <h3 className="font-medium">Budget Planner</h3>
                 <p className="text-sm text-muted-foreground">Create and manage your budget categories</p>
               </div>
             </Link>
             
-            <div className="border rounded-lg p-4 h-full opacity-70">
-              <Target className="h-6 w-6 text-finance-blue mb-2" />
-              <h3 className="font-medium">Goal Planning</h3>
-              <p className="text-sm text-muted-foreground">Set and track your financial goals</p>
-              <p className="text-xs text-muted-foreground mt-2">Coming soon</p>
-            </div>
-            
-            <div className="border rounded-lg p-4 h-full opacity-70">
-              <Users className="h-6 w-6 text-finance-blue mb-2" />
-              <h3 className="font-medium">Community</h3>
-              <p className="text-sm text-muted-foreground">Connect with others on your financial journey</p>
-              <p className="text-xs text-muted-foreground mt-2">Coming soon</p>
-            </div>
+            <Link to="/reports" className="block">
+              <div className="border border-blue-200 rounded-lg p-4 h-full hover:bg-blue-50 transition-colors">
+                <FileText className="h-6 w-6 text-blue-600 mb-2" />
+                <h3 className="font-medium">Financial Reports</h3>
+                <p className="text-sm text-muted-foreground">Analyze your spending patterns and budget performance</p>
+              </div>
+            </Link>
           </div>
         </CardContent>
       </Card>

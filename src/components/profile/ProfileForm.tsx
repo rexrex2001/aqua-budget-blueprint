@@ -7,14 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { currencies, updateUserProfile } from "@/utils/profileUtils";
+import { updateUserProfile } from "@/utils/profileUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client"; // Added missing import
+import { supabase } from "@/integrations/supabase/client";
 
 interface ProfileFormData {
   name: string;
   email: string;
-  currency: string;
   defaultView: "daily" | "weekly" | "monthly";
 }
 
@@ -28,7 +27,6 @@ const ProfileForm = () => {
   const [formData, setFormData] = useState<ProfileFormData>({
     name: userData.name,
     email: user?.email || userData.email,
-    currency: userData.preferences.currency,
     defaultView: userData.preferences.defaultView,
   });
 
@@ -36,7 +34,6 @@ const ProfileForm = () => {
     setFormData({
       name: userData.name,
       email: user?.email || userData.email,
-      currency: userData.preferences.currency,
       defaultView: userData.preferences.defaultView,
     });
     
@@ -84,12 +81,12 @@ const ProfileForm = () => {
       return;
     }
     
-    // Update local storage user data
+    // Update local storage user data with fixed PHP currency
     updateLocalUserProfile(
       formData.name,
       formData.email, 
       {
-        currency: formData.currency,
+        currency: "₱", // Always PHP
         defaultView: formData.defaultView as "daily" | "weekly" | "monthly",
       }
     );
@@ -160,23 +157,13 @@ const ProfileForm = () => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="currency">Preferred Currency</Label>
-            <Select
-              value={formData.currency}
-              onValueChange={(value) => setFormData({ ...formData, currency: value })}
-              disabled={loading}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select currency" />
-              </SelectTrigger>
-              <SelectContent>
-                {currencies.map((currency) => (
-                  <SelectItem key={currency.code} value={currency.code}>
-                    {currency.symbol} - {currency.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="currency">Currency</Label>
+            <div className="p-2 border rounded-md bg-gray-50">
+              <span className="text-sm">₱ - Philippine Peso (Fixed)</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Currency is fixed to Philippine Peso for all users
+            </p>
           </div>
 
           <div className="space-y-2">

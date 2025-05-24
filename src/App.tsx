@@ -10,8 +10,7 @@ import Expenses from "./pages/Expenses";
 import Budgets from "./pages/Budgets";
 import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
-import Goals from "./pages/Goals"; // New goals page
-import Community from "./pages/Community"; // New community page
+import Reports from "./pages/Reports"; // Changed from Goals to Reports
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./context/AuthContext";
 import RouteGuard from "./components/RouteGuard";
@@ -26,14 +25,7 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
-            {/* Auth route now wrapped with Layout */}
-            <Route path="/auth" element={
-              <Layout>
-                <RouteGuard requireAuth={false}>
-                  <Auth />
-                </RouteGuard>
-              </Layout>
-            } />
+            {/* Default route - Dashboard/Home always loads first */}
             <Route path="/" element={
               <Layout>
                 <Index />
@@ -49,15 +41,18 @@ const App = () => (
                 <Budgets />
               </Layout>
             } />
-            {/* New Goals and Community routes */}
-            <Route path="/goals" element={
+            {/* Reports page replaces Goals */}
+            <Route path="/reports" element={
               <Layout>
-                <Goals />
+                <Reports />
               </Layout>
             } />
-            <Route path="/community" element={
+            {/* Auth route - users go here only when they want to create account */}
+            <Route path="/auth" element={
               <Layout>
-                <Community />
+                <RouteGuard requireAuth={false}>
+                  <Auth />
+                </RouteGuard>
               </Layout>
             } />
             <Route path="/profile" element={
@@ -67,6 +62,7 @@ const App = () => (
                 </Layout>
               </RouteGuard>
             } />
+            {/* Community route removed */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

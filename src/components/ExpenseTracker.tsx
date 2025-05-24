@@ -1,6 +1,7 @@
 
 import { useState } from "react";
-import { useUser } from "@/context/UserContext";
+import { useAuth } from "@/context/AuthContext";
+import { useExpenses } from "@/hooks/useExpenses";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,13 +11,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { calculateExpenseProjection } from "@/utils/projectionUtils";
 
 type TimeFrame = "daily" | "weekly" | "monthly";
 
 const categories = [
   "Food & Dining",
-  "Transportation",
+  "Transportation", 
   "Housing",
   "Utilities",
   "Entertainment",
@@ -29,9 +29,9 @@ const categories = [
 ];
 
 const ExpenseTracker = () => {
-  const { userData, addExpense, deleteExpense } = useUser();
-  const [timeFrame, setTimeFrame] = useState<TimeFrame>(userData.preferences.defaultView);
-  const [showProjections, setShowProjections] = useState(false);
+  const { user } = useAuth();
+  const { expenses, loading, addExpense, deleteExpense } = useExpenses();
+  const [timeFrame, setTimeFrame] = useState<TimeFrame>("monthly");
   
   const [newExpense, setNewExpense] = useState({
     amount: "",
@@ -39,9 +39,6 @@ const ExpenseTracker = () => {
     description: "",
     date: format(new Date(), "yyyy-MM-dd"),
   });
-
-  // Calculate projections using greedy algorithm
-  const projectedExpenses = calculateExpenseProjection(userData.expenses, 90, timeFrame);
 
   // Filter expenses based on the selected timeframe
   const filterExpensesByTimeFrame = () => {
@@ -59,14 +56,19 @@ const ExpenseTracker = () => {
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     }
 
-    return userData.expenses.filter(expense => new Date(expense.date) >= startDate)
+    return expenses.filter(expense => new Date(expense.date) >= startDate)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   };
 
   const filteredExpenses = filterExpensesByTimeFrame();
 
-  const handleExpenseSubmit = (e: React.FormEvent) => {
+  const handleExpenseSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!user) {
+      toast.error("Please sign in to add expenses");
+      return;
+    }
     
     if (!newExpense.amount || !newExpense.category || !newExpense.date) {
       toast.error("Please fill in all required fields");
@@ -79,51 +81,59 @@ const ExpenseTracker = () => {
       return;
     }
 
-    addExpense({
+    const result = await addExpense({
       amount,
       category: newExpense.category,
       description: newExpense.description,
       date: newExpense.date,
     });
 
-    toast.success("Expense added successfully");
-
-    setNewExpense({
-      amount: "",
-      category: "",
-      description: "",
-      date: format(new Date(), "yyyy-MM-dd"),
-    });
+    if (result) {
+      setNewExpense({
+        amount: "",
+        category: "",
+        description: "",
+        date: format(new Date(), "yyyy-MM-dd"),
+      });
+    }
   };
 
-  const handleDeleteExpense = (id: string) => {
-    deleteExpense(id);
-    toast.success("Expense deleted successfully");
+  const handleDeleteExpense = async (id: string) => {
+    await deleteExpense(id);
   };
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <h3 className="text-lg font-medium mb-2">Authentication Required</h3>
+              <p className="text-muted-foreground mb-4">
+                Please sign in to track your expenses.
+              </p>
+              <Button onClick={() => window.location.href = '/auth'}>
+                Sign In
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-        <h1 className="text-2xl font-bold text-finance-text">Expense Tracker</h1>
+        <h1 className="text-2xl font-bold text-blue-800">Expense Tracker</h1>
         
-        <div className="flex gap-2 items-center">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => setShowProjections(!showProjections)}
-            className="text-xs"
-          >
-            {showProjections ? "Hide Projections" : "Show Projections"}
-          </Button>
-          
-          <Tabs value={timeFrame} onValueChange={(value) => setTimeFrame(value as TimeFrame)} className="w-full sm:w-auto mt-4 sm:mt-0">
-            <TabsList>
-              <TabsTrigger value="daily">Daily</TabsTrigger>
-              <TabsTrigger value="weekly">Weekly</TabsTrigger>
-              <TabsTrigger value="monthly">Monthly</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
+        <Tabs value={timeFrame} onValueChange={(value) => setTimeFrame(value as TimeFrame)} className="w-full sm:w-auto mt-4 sm:mt-0">
+          <TabsList>
+            <TabsTrigger value="daily">Daily</TabsTrigger>
+            <TabsTrigger value="weekly">Weekly</TabsTrigger>
+            <TabsTrigger value="monthly">Monthly</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -146,6 +156,7 @@ const ExpenseTracker = () => {
                     value={newExpense.amount}
                     onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
                     className="pl-10"
+                    disabled={loading}
                   />
                 </div>
               </div>
@@ -155,6 +166,7 @@ const ExpenseTracker = () => {
                 <Select
                   value={newExpense.category}
                   onValueChange={(value) => setNewExpense({ ...newExpense, category: value })}
+                  disabled={loading}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select category" />
@@ -176,6 +188,7 @@ const ExpenseTracker = () => {
                   placeholder="Description"
                   value={newExpense.description}
                   onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })}
+                  disabled={loading}
                 />
               </div>
 
@@ -186,10 +199,13 @@ const ExpenseTracker = () => {
                   type="date"
                   value={newExpense.date}
                   onChange={(e) => setNewExpense({ ...newExpense, date: e.target.value })}
+                  disabled={loading}
                 />
               </div>
 
-              <Button type="submit" className="w-full">Add Expense</Button>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Adding..." : "Add Expense"}
+              </Button>
             </form>
           </CardContent>
         </Card>
@@ -200,14 +216,18 @@ const ExpenseTracker = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {filteredExpenses.length > 0 ? (
+              {loading ? (
+                <div className="text-center py-10">
+                  <p className="text-muted-foreground">Loading expenses...</p>
+                </div>
+              ) : filteredExpenses.length > 0 ? (
                 filteredExpenses.map((expense) => (
                   <div
                     key={expense.id}
-                    className="flex justify-between items-center p-3 rounded-md bg-slate-50 hover:bg-slate-100"
+                    className="flex justify-between items-center p-3 rounded-md bg-red-50 hover:bg-red-100"
                   >
                     <div className="flex items-start gap-3">
-                      <div className="h-10 w-10 rounded-full bg-finance-blue-light text-finance-blue-dark flex items-center justify-center font-bold">
+                      <div className="h-10 w-10 rounded-full bg-red-100 text-red-800 flex items-center justify-center font-bold">
                         {expense.category.charAt(0)}
                       </div>
                       <div>
@@ -219,14 +239,15 @@ const ExpenseTracker = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
-                      <div className="text-lg font-medium">
-                        ₱ {expense.amount.toFixed(2)}
+                      <div className="text-lg font-medium text-red-600">
+                        ₱ {Number(expense.amount).toFixed(2)}
                       </div>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDeleteExpense(expense.id)}
                         className="text-red-500 hover:text-red-700"
+                        disabled={loading}
                       >
                         Delete
                       </Button>
@@ -249,52 +270,6 @@ const ExpenseTracker = () => {
           </CardContent>
         </Card>
       </div>
-
-      {showProjections && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Expense Projections</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Based on your spending patterns, here are projected future expenses
-            </p>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-80 w-full rounded-md border p-4">
-              <div className="space-y-4 pr-4">
-                {projectedExpenses.length > 0 ? (
-                  projectedExpenses.map((expense) => (
-                    <div
-                      key={expense.id}
-                      className="flex justify-between items-center p-3 rounded-md bg-blue-50 hover:bg-blue-100 border border-dashed border-blue-200"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="h-10 w-10 rounded-full bg-blue-100 text-blue-800 flex items-center justify-center font-bold">
-                          {expense.category.charAt(0)}
-                        </div>
-                        <div>
-                          <div className="font-medium">{expense.category}</div>
-                          <div className="text-sm text-muted-foreground">{expense.description}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {format(new Date(expense.date), "MMM d, yyyy")}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-lg font-medium text-blue-800">
-                        ₱ {expense.amount.toFixed(2)}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-10">
-                    <p className="text-muted-foreground">Not enough data to generate expense projections</p>
-                    <p className="text-xs text-muted-foreground mt-2">Add more expenses to improve prediction accuracy</p>
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 };

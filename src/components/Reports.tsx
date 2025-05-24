@@ -106,25 +106,38 @@ const Reports = () => {
 
   const chartData = processChartData();
 
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <h3 className="text-lg font-medium mb-2">Authentication Required</h3>
-              <p className="text-muted-foreground mb-4">
-                Please sign in to view your financial reports.
-              </p>
-              <Button onClick={() => window.location.href = '/auth'}>
-                Sign In
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  // Demo data for guests
+  const demoExpenses = [
+    { id: '1', amount: 500, category: 'Food & Dining', description: 'Lunch at restaurant', date: '2024-01-15', created_at: '2024-01-15T12:00:00Z' },
+    { id: '2', amount: 1200, category: 'Transportation', description: 'Taxi fare', date: '2024-01-14', created_at: '2024-01-14T10:00:00Z' },
+    { id: '3', amount: 800, category: 'Shopping', description: 'Grocery shopping', date: '2024-01-13', created_at: '2024-01-13T16:00:00Z' },
+  ];
+
+  const demoBudgets = [
+    { id: '1', category: 'Food & Dining', amount: 5000, period: 'monthly', created_at: '2024-01-01T00:00:00Z' },
+    { id: '2', category: 'Transportation', amount: 3000, period: 'monthly', created_at: '2024-01-01T00:00:00Z' },
+    { id: '3', category: 'Shopping', amount: 4000, period: 'monthly', created_at: '2024-01-01T00:00:00Z' },
+  ];
+
+  const displayExpenses = user ? expenses : demoExpenses;
+  const displayBudgets = user ? budgets : demoBudgets;
+  const displayData = dataType === "expenses" ? displayExpenses : displayBudgets;
+
+  const processDemoChartData = () => {
+    const categoryTotals: Record<string, number> = {};
+
+    displayData.forEach(item => {
+      categoryTotals[item.category] = (categoryTotals[item.category] || 0) + Number(item.amount);
+    });
+
+    return Object.entries(categoryTotals).map(([category, amount]) => ({
+      name: category,
+      value: amount,
+      amount: amount
+    }));
+  };
+
+  const displayChartData = user ? chartData : processDemoChartData();
 
   return (
     <div className="space-y-6">
@@ -154,6 +167,19 @@ const Reports = () => {
         </div>
       </div>
 
+      {!user && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <h3 className="text-lg font-medium mb-2 text-blue-800">Demo Mode</h3>
+              <p className="text-blue-700 mb-4">
+                You're viewing demo data. <Button variant="link" className="p-0 h-auto text-blue-700 underline" onClick={() => window.location.href = '/auth'}>Sign in</Button> to view your actual financial reports.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
@@ -164,10 +190,10 @@ const Reports = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">
-              ₱ {expenses.reduce((sum, expense) => sum + Number(expense.amount), 0).toFixed(2)}
+              ₱ {displayExpenses.reduce((sum, expense) => sum + Number(expense.amount), 0).toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {expenses.length} transactions
+              {displayExpenses.length} transactions
             </p>
           </CardContent>
         </Card>
@@ -180,10 +206,10 @@ const Reports = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              ₱ {budgets.reduce((sum, budget) => sum + Number(budget.amount), 0).toFixed(2)}
+              ₱ {displayBudgets.reduce((sum, budget) => sum + Number(budget.amount), 0).toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {budgets.length} budget categories
+              {displayBudgets.length} budget categories
             </p>
           </CardContent>
         </Card>
@@ -196,13 +222,13 @@ const Reports = () => {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${
-              budgets.reduce((sum, budget) => sum + Number(budget.amount), 0) - 
-              expenses.reduce((sum, expense) => sum + Number(expense.amount), 0) >= 0 
+              displayBudgets.reduce((sum, budget) => sum + Number(budget.amount), 0) - 
+              displayExpenses.reduce((sum, expense) => sum + Number(expense.amount), 0) >= 0 
                 ? 'text-green-600' : 'text-red-600'
             }`}>
               ₱ {(
-                budgets.reduce((sum, budget) => sum + Number(budget.amount), 0) - 
-                expenses.reduce((sum, expense) => sum + Number(expense.amount), 0)
+                displayBudgets.reduce((sum, budget) => sum + Number(budget.amount), 0) - 
+                displayExpenses.reduce((sum, expense) => sum + Number(expense.amount), 0)
               ).toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -220,12 +246,12 @@ const Reports = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="h-80">
-          {chartData.length > 0 ? (
+          {displayChartData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               {chartType === "pie" ? (
                 <PieChart>
                   <Pie
-                    data={chartData}
+                    data={displayChartData}
                     cx="50%"
                     cy="50%"
                     labelLine={false}
@@ -234,14 +260,14 @@ const Reports = () => {
                     fill="#8884d8"
                     dataKey="value"
                   >
-                    {chartData.map((entry, index) => (
+                    {displayChartData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip formatter={(value) => [`₱${Number(value).toFixed(2)}`, dataType === "expenses" ? "Amount" : "Budget"]} />
                 </PieChart>
               ) : (
-                <BarChart data={chartData}>
+                <BarChart data={displayChartData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis />
@@ -269,7 +295,7 @@ const Reports = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {expenses.slice(0, 5).map((expense) => (
+              {displayExpenses.slice(0, 5).map((expense) => (
                 <div key={expense.id} className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
                   <div>
                     <div className="font-medium">{expense.category}</div>
@@ -283,7 +309,7 @@ const Reports = () => {
                   </div>
                 </div>
               ))}
-              {expenses.length === 0 && (
+              {displayExpenses.length === 0 && (
                 <p className="text-muted-foreground text-center py-4">No expenses recorded</p>
               )}
             </div>
@@ -296,7 +322,7 @@ const Reports = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {budgets.slice(0, 5).map((budget) => (
+              {displayBudgets.slice(0, 5).map((budget) => (
                 <div key={budget.id} className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
                   <div>
                     <div className="font-medium">{budget.category}</div>
@@ -310,7 +336,7 @@ const Reports = () => {
                   </div>
                 </div>
               ))}
-              {budgets.length === 0 && (
+              {displayBudgets.length === 0 && (
                 <p className="text-muted-foreground text-center py-4">No budgets created</p>
               )}
             </div>

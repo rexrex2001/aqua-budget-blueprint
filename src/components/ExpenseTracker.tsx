@@ -99,28 +99,12 @@ const ExpenseTracker = () => {
   };
 
   const handleDeleteExpense = async (id: string) => {
+    if (!user) {
+      toast.error("Please sign in to delete expenses");
+      return;
+    }
     await deleteExpense(id);
   };
-
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <h3 className="text-lg font-medium mb-2">Authentication Required</h3>
-              <p className="text-muted-foreground mb-4">
-                Please sign in to track your expenses.
-              </p>
-              <Button onClick={() => window.location.href = '/auth'}>
-                Sign In
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -142,6 +126,13 @@ const ExpenseTracker = () => {
             <CardTitle>Add New Expense</CardTitle>
           </CardHeader>
           <CardContent>
+            {!user && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-700">
+                  Please <Button variant="link" className="p-0 h-auto text-blue-700 underline" onClick={() => window.location.href = '/auth'}>sign in</Button> to add expenses
+                </p>
+              </div>
+            )}
             <form onSubmit={handleExpenseSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="amount">Amount</Label>
@@ -156,7 +147,7 @@ const ExpenseTracker = () => {
                     value={newExpense.amount}
                     onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
                     className="pl-10"
-                    disabled={loading}
+                    disabled={loading || !user}
                   />
                 </div>
               </div>
@@ -166,7 +157,7 @@ const ExpenseTracker = () => {
                 <Select
                   value={newExpense.category}
                   onValueChange={(value) => setNewExpense({ ...newExpense, category: value })}
-                  disabled={loading}
+                  disabled={loading || !user}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select category" />
@@ -188,7 +179,7 @@ const ExpenseTracker = () => {
                   placeholder="Description"
                   value={newExpense.description}
                   onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })}
-                  disabled={loading}
+                  disabled={loading || !user}
                 />
               </div>
 
@@ -199,11 +190,11 @@ const ExpenseTracker = () => {
                   type="date"
                   value={newExpense.date}
                   onChange={(e) => setNewExpense({ ...newExpense, date: e.target.value })}
-                  disabled={loading}
+                  disabled={loading || !user}
                 />
               </div>
 
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" className="w-full" disabled={loading || !user}>
                 {loading ? "Adding..." : "Add Expense"}
               </Button>
             </form>
@@ -242,18 +233,31 @@ const ExpenseTracker = () => {
                       <div className="text-lg font-medium text-red-600">
                         ₱ {Number(expense.amount).toFixed(2)}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteExpense(expense.id)}
-                        className="text-red-500 hover:text-red-700"
-                        disabled={loading}
-                      >
-                        Delete
-                      </Button>
+                      {user && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteExpense(expense.id)}
+                          className="text-red-500 hover:text-red-700"
+                          disabled={loading}
+                        >
+                          Delete
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))
+              ) : !user ? (
+                <div className="text-center py-10">
+                  <p className="text-muted-foreground">Sign in to view and track your expenses</p>
+                  <Button 
+                    variant="outline" 
+                    className="mt-2"
+                    onClick={() => window.location.href = '/auth'}
+                  >
+                    Sign In
+                  </Button>
+                </div>
               ) : (
                 <div className="text-center py-10">
                   <p className="text-muted-foreground">No expenses found for the selected time period</p>

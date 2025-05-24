@@ -4,11 +4,12 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+// Updated Budget type to match Supabase table structure
 export type Budget = {
   id: string;
   category: string;
   amount: number;
-  period: 'daily' | 'weekly' | 'monthly';
+  period: string; // Changed from union type to string to match database
   created_at: string;
   updated_at: string;
   user_id: string;
@@ -45,7 +46,7 @@ export const useBudgets = () => {
   const addBudget = async (budget: {
     category: string;
     amount: number;
-    period: 'daily' | 'weekly' | 'monthly';
+    period: 'daily' | 'weekly' | 'monthly'; // Keep union type for input validation
   }) => {
     if (!user) {
       toast.error('You must be logged in to add budgets');

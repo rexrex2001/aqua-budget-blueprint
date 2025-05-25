@@ -1,16 +1,16 @@
 
 import { useState } from "react";
-import { useUser } from "@/context/UserContext";
+import { useAuth } from "@/context/AuthContext";
+import { useBudgets } from "@/hooks/useBudgets";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { calculateExpenseProjection, calculateBudgetProjection } from "@/utils/projectionUtils";
 
+// Categories for budget selection
 const categories = [
   "Food & Dining",
   "Transportation",
@@ -26,53 +26,36 @@ const categories = [
 ];
 
 const BudgetManager = () => {
-  const { userData, addBudget, deleteBudget } = useUser();
-  const [showProjections, setShowProjections] = useState(false);
+  const { user } = useAuth();
+  const { budgets, loading, addBudget, deleteBudget } = useBudgets();
   
+  // Form state for creating new budget (income)
   const [newBudget, setNewBudget] = useState({
     category: "",
     amount: "",
-    period: "monthly" as "daily" | "weekly" | "monthly",
+    description: "",
   });
 
-  // Calculate expense projections for budget analysis
-  const projectedExpenses = calculateExpenseProjection(userData.expenses, 90);
-  
-  // Calculate budget projections using greedy algorithm
-  const budgetProjections = calculateBudgetProjection(
-    userData.budgets,
-    userData.expenses,
-    projectedExpenses
-  );
+  // Demo data for guests to see the interface
+  const demoBudgets = [
+    { id: '1', category: 'Food & Dining', amount: 15000, description: 'Monthly grocery and dining budget', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z', user_id: 'demo', period: 'monthly' },
+    { id: '2', category: 'Transportation', amount: 8000, description: 'Commute and travel expenses', created_at: '2024-01-02T00:00:00Z', updated_at: '2024-01-02T00:00:00Z', user_id: 'demo', period: 'monthly' },
+    { id: '3', category: 'Entertainment', amount: 5000, description: 'Movies, games, and leisure activities', created_at: '2024-01-03T00:00:00Z', updated_at: '2024-01-03T00:00:00Z', user_id: 'demo', period: 'monthly' },
+  ];
 
-  // Helper function to calculate spending by category
-  const getSpendingByCategory = (category: string, period: "daily" | "weekly" | "monthly") => {
-    const now = new Date();
-    let startDate: Date;
+  // Use actual data for authenticated users, demo data for guests
+  const displayBudgets = user ? budgets : demoBudgets;
 
-    if (period === "daily") {
-      startDate = new Date(now);
-      startDate.setHours(0, 0, 0, 0);
-    } else if (period === "weekly") {
-      startDate = new Date(now);
-      startDate.setDate(now.getDate() - now.getDay());
-      startDate.setHours(0, 0, 0, 0);
-    } else {
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    }
-
-    return userData.expenses
-      .filter(expense => 
-        expense.category === category && 
-        new Date(expense.date) >= startDate
-      )
-      .reduce((sum, expense) => sum + expense.amount, 0);
-  };
-
-  const handleBudgetSubmit = (e: React.FormEvent) => {
+  // Handle form submission for creating new budget
+  const handleBudgetSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!newBudget.category || !newBudget.amount || !newBudget.period) {
+    if (!user) {
+      toast.error("Please sign in to manage your budget");
+      return;
+    }
+    
+    if (!newBudget.category || !newBudget.amount || !newBudget.description) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -83,63 +66,78 @@ const BudgetManager = () => {
       return;
     }
 
-    // Check if budget for this category and period already exists
-    const existingBudget = userData.budgets.find(
-      b => b.category === newBudget.category && b.period === newBudget.period
-    );
+    // Check if budget for this category already exists
+    const existingBudget = budgets.find(b => b.category === newBudget.category);
 
     if (existingBudget) {
-      toast.error(`A ${newBudget.period} budget for ${newBudget.category} already exists`);
+      toast.error(`A budget for ${newBudget.category} already exists`);
       return;
     }
 
-    addBudget({
+    const result = await addBudget({
       category: newBudget.category,
       amount,
-      period: newBudget.period,
+      period: 'monthly', // Default period for backend compatibility
     });
 
-    toast.success("Budget added successfully");
-
-    setNewBudget({
-      category: "",
-      amount: "",
-      period: "monthly",
-    });
+    if (result) {
+      setNewBudget({
+        category: "",
+        amount: "",
+        description: "",
+      });
+      toast.success("Income budget added successfully");
+    }
   };
 
-  const handleDeleteBudget = (id: string) => {
-    deleteBudget(id);
-    toast.success("Budget deleted successfully");
+  // Handle budget deletion
+  const handleDeleteBudget = async (id: string) => {
+    if (!user) {
+      toast.error("Please sign in to delete budgets");
+      return;
+    }
+    await deleteBudget(id);
   };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-        <h1 className="text-2xl font-bold text-finance-text">Budget Manager</h1>
-        
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={() => setShowProjections(!showProjections)}
-          className="text-xs"
-        >
-          {showProjections ? "Hide Projections" : "Show Projections"}
-        </Button>
+        <h1 className="text-2xl font-bold text-blue-800">Income Manager</h1>
       </div>
+
+      {!user && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <h3 className="text-lg font-medium mb-2 text-blue-800">Demo Mode</h3>
+              <p className="text-blue-700 mb-4">
+                You're viewing demo data. <Button variant="link" className="p-0 h-auto text-blue-700 underline" onClick={() => window.location.href = '/auth'}>Sign in</Button> to manage your actual income and budgets.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-1">
           <CardHeader>
-            <CardTitle>Create New Budget</CardTitle>
+            <CardTitle>Add New Income Source</CardTitle>
           </CardHeader>
           <CardContent>
+            {!user && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-700">
+                  Please <Button variant="link" className="p-0 h-auto text-blue-700 underline" onClick={() => window.location.href = '/auth'}>sign in</Button> to add income sources
+                </p>
+              </div>
+            )}
             <form onSubmit={handleBudgetSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
                 <Select
                   value={newBudget.category}
                   onValueChange={(value) => setNewBudget({ ...newBudget, category: value })}
+                  disabled={loading || !user}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select category" />
@@ -155,7 +153,7 @@ const BudgetManager = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="amount">Budget Amount</Label>
+                <Label htmlFor="amount">Income Amount</Label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
                     ₱
@@ -167,160 +165,94 @@ const BudgetManager = () => {
                     value={newBudget.amount}
                     onChange={(e) => setNewBudget({ ...newBudget, amount: e.target.value })}
                     className="pl-10"
+                    disabled={loading || !user}
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="period">Budget Period</Label>
-                <Select
-                  value={newBudget.period}
-                  onValueChange={(value) => setNewBudget({ ...newBudget, period: value as "daily" | "weekly" | "monthly" })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select period" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="daily">Daily</SelectItem>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="description">Description</Label>
+                <Input
+                  id="description"
+                  placeholder="Describe this income source"
+                  value={newBudget.description}
+                  onChange={(e) => setNewBudget({ ...newBudget, description: e.target.value })}
+                  disabled={loading || !user}
+                />
               </div>
 
-              <Button type="submit" className="w-full">Create Budget</Button>
+              <Button type="submit" className="w-full" disabled={loading || !user}>
+                {loading ? "Adding..." : "Add Income Source"}
+              </Button>
             </form>
           </CardContent>
         </Card>
 
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Your Budgets</CardTitle>
+            <CardTitle className="text-green-600">Your Income Sources</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
-              {userData.budgets.length > 0 ? (
-                userData.budgets.map((budget) => {
-                  const spent = getSpendingByCategory(budget.category, budget.period);
-                  const percentage = Math.min(Math.round((spent / budget.amount) * 100), 100);
-                  
+              {displayBudgets.length > 0 ? (
+                displayBudgets.map((budget) => {
                   return (
                     <div key={budget.id} className="space-y-2">
                       <div className="flex justify-between items-center">
                         <div>
                           <span className="font-medium">{budget.category}</span>
-                          <span className="text-xs text-muted-foreground ml-2">
-                            ({budget.period})
-                          </span>
+                          <div className="text-sm text-muted-foreground mt-1">
+                            {budget.description || "No description"}
+                          </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteBudget(budget.id)}
-                          className="text-red-500 hover:text-red-700 h-8"
-                        >
-                          Delete
-                        </Button>
+                        {user && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteBudget(budget.id)}
+                            className="text-red-500 hover:text-red-700 h-8"
+                            disabled={loading}
+                          >
+                            Delete
+                          </Button>
+                        )}
                       </div>
                       
                       <div className="flex justify-between items-center text-sm">
-                        <span>
-                          ₱ {spent.toFixed(2)} / {budget.amount.toFixed(2)}
-                        </span>
-                        <span className={percentage >= 100 ? "text-red-500" : "text-green-600"}>
-                          {percentage}%
+                        <span className="text-green-600 font-medium text-lg">
+                          ₱ {Number(budget.amount).toFixed(2)}
                         </span>
                       </div>
                       
-                      <Progress 
-                        value={percentage} 
-                        className={`h-2 ${
-                          percentage >= 100 ? "bg-red-200" : percentage > 80 ? "bg-amber-200" : "bg-green-200"
-                        }`} 
-                      />
+                      <div className="h-2 bg-green-100 rounded-full">
+                        <div className="h-full bg-green-500 rounded-full w-full"></div>
+                      </div>
                     </div>
                   );
                 })
+              ) : user ? (
+                <div className="text-center py-10">
+                  <p className="text-muted-foreground">No income sources added yet</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Add income sources to track your available budget
+                  </p>
+                </div>
               ) : (
                 <div className="text-center py-10">
-                  <p className="text-muted-foreground">No budgets created yet</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Create a budget to start tracking your spending against your goals
-                  </p>
+                  <p className="text-muted-foreground">Sign in to view and manage your income sources</p>
+                  <Button 
+                    variant="outline" 
+                    className="mt-2"
+                    onClick={() => window.location.href = '/auth'}
+                  >
+                    Sign In
+                  </Button>
                 </div>
               )}
             </div>
           </CardContent>
         </Card>
       </div>
-
-      {showProjections && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Budget Projections</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              See how your expenses will affect your budget in the future
-            </p>
-          </CardHeader>
-          <CardContent>
-            {budgetProjections.length > 0 ? (
-              <div className="space-y-6">
-                {budgetProjections.map((projection) => (
-                  <div key={projection.id} className="space-y-3">
-                    <div>
-                      <span className="font-medium">{projection.category}</span>
-                      <span className="text-xs text-muted-foreground ml-2">
-                        ({projection.period})
-                      </span>
-                    </div>
-                    
-                    <ScrollArea className="h-40 w-full rounded-md border">
-                      <div className="p-4 space-y-4">
-                        {projection.projections.length > 0 ? (
-                          projection.projections.map((period: any, index: number) => {
-                            const isOverBudget = period.amount > projection.amount;
-                            
-                            return (
-                              <div key={`${projection.id}-${period.period}`} className="space-y-1">
-                                <div className="flex justify-between items-center text-sm">
-                                  <span className="font-medium">{period.label}</span>
-                                  <span className={isOverBudget ? "text-red-500" : "text-green-600"}>
-                                    ₱ {period.amount.toFixed(2)}
-                                  </span>
-                                </div>
-                                
-                                <Progress 
-                                  value={period.percentage}
-                                  className={`h-1.5 ${
-                                    isOverBudget ? "bg-red-200" : period.percentage > 80 ? "bg-amber-200" : "bg-green-200"
-                                  }`}
-                                />
-                                
-                                <div className="text-xs text-right text-muted-foreground">
-                                  {isOverBudget ? "Over budget" : `${period.percentage}% of budget`}
-                                </div>
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <p className="text-center text-muted-foreground py-4">
-                            Not enough data for projections
-                          </p>
-                        )}
-                      </div>
-                    </ScrollArea>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-10">
-                <p className="text-muted-foreground">No budget projections available</p>
-                <p className="text-xs text-muted-foreground mt-2">Create budgets to see projections</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 };

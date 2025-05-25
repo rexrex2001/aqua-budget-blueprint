@@ -1,338 +1,314 @@
 
-import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useExpenses } from "@/hooks/useExpenses";
 import { useBudgets } from "@/hooks/useBudgets";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Link } from "react-router-dom";
-import { 
-  BarChart, 
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer 
-} from "recharts";
-import { 
-  ChartLine,
-  Calendar,
-  DollarSign,
-  Calculator,
-  FileText,
-  ArrowRight
-} from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
+import { format } from "date-fns";
 
-type TimeFrame = "daily" | "weekly" | "monthly";
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
 const Dashboard = () => {
   const { user } = useAuth();
   const { expenses } = useExpenses();
   const { budgets } = useBudgets();
-  const [timeFrame, setTimeFrame] = useState<TimeFrame>("monthly");
-  
-  // Quick calculator state for guests
-  const [amount1, setAmount1] = useState<number>(0);
-  const [amount2, setAmount2] = useState<number>(0);
-  const [operation, setOperation] = useState<string>("add");
-  const [result, setResult] = useState<number | null>(null);
 
-  // Calculate result for quick calculator
-  const calculateResult = () => {
-    switch(operation) {
-      case "add":
-        setResult(amount1 + amount2);
-        break;
-      case "subtract":
-        setResult(amount1 - amount2);
-        break;
-      case "multiply":
-        setResult(amount1 * amount2);
-        break;
-      case "divide":
-        setResult(amount2 !== 0 ? amount1 / amount2 : 0);
-        break;
-      default:
-        setResult(0);
-    }
-  };
+  // Demo data for guests
+  const demoExpenses = [
+    { id: '1', amount: 500, category: 'Food & Dining', description: 'Lunch at restaurant', date: '2024-01-15', created_at: '2024-01-15T12:00:00Z' },
+    { id: '2', amount: 1200, category: 'Transportation', description: 'Taxi fare', date: '2024-01-14', created_at: '2024-01-14T10:00:00Z' },
+    { id: '3', amount: 800, category: 'Shopping', description: 'Grocery shopping', date: '2024-01-13', created_at: '2024-01-13T16:00:00Z' },
+  ];
 
-  // Calculate totals from Supabase data
-  const totalExpenses = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
-  const totalBudgets = budgets.reduce((sum, budget) => sum + Number(budget.amount), 0);
-  const remainingBudget = totalBudgets - totalExpenses;
+  const demoBudgets = [
+    { id: '1', category: 'Food & Dining', amount: 5000, period: 'monthly', created_at: '2024-01-01T00:00:00Z' },
+    { id: '2', category: 'Transportation', amount: 3000, period: 'monthly', created_at: '2024-01-01T00:00:00Z' },
+    { id: '3', category: 'Shopping', amount: 4000, period: 'monthly', created_at: '2024-01-01T00:00:00Z' },
+  ];
 
-  // Get expenses for current timeframe
-  const getTimeFrameExpenses = () => {
-    const now = new Date();
-    let startDate: Date;
+  // Use actual data for authenticated users, demo data for guests
+  const displayExpenses = user ? expenses : demoExpenses;
+  const displayBudgets = user ? budgets : demoBudgets;
 
-    if (timeFrame === "daily") {
-      startDate = new Date(now);
-      startDate.setHours(0, 0, 0, 0);
-    } else if (timeFrame === "weekly") {
-      startDate = new Date(now);
-      startDate.setDate(now.getDate() - now.getDay());
-      startDate.setHours(0, 0, 0, 0);
-    } else {
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    }
+  // Calculate totals
+  const totalExpenses = displayExpenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
+  const totalBudget = displayBudgets.reduce((sum, budget) => sum + Number(budget.amount), 0);
+  const remainingBudget = totalBudget - totalExpenses;
 
-    return expenses.filter(expense => new Date(expense.date) >= startDate);
-  };
-
-  const timeFrameExpenses = getTimeFrameExpenses();
-  const timeFrameTotal = timeFrameExpenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
-
-  // Category breakdown
-  const categoryTotals = timeFrameExpenses.reduce<Record<string, number>>((acc, expense) => {
+  // Process data for expense chart
+  const expenseData = displayExpenses.reduce((acc: Record<string, number>, expense) => {
     acc[expense.category] = (acc[expense.category] || 0) + Number(expense.amount);
     return acc;
   }, {});
-  
-  const categories = Object.keys(categoryTotals);
 
-  // Chart data - reformatted for Recharts
-  const chartData = categories.map(category => ({
+  const chartData = Object.entries(expenseData).map(([category, amount]) => ({
     name: category,
-    amount: categoryTotals[category]
+    value: amount,
   }));
+
+  // Process budget vs expense comparison
+  const budgetComparisonData = displayBudgets.map(budget => {
+    const spent = displayExpenses
+      .filter(expense => expense.category === budget.category)
+      .reduce((sum, expense) => sum + Number(expense.amount), 0);
+    
+    return {
+      category: budget.category,
+      budget: Number(budget.amount),
+      spent: spent,
+      remaining: Number(budget.amount) - spent,
+    };
+  });
 
   return (
     <div className="space-y-6">
-      {/* Welcome Section for All Users */}
-      <Card className="border-blue-200 bg-blue-50">
-        <CardHeader>
-          <CardTitle className="text-2xl text-blue-800">Welcome to FinTrack - Your Financial Companion</CardTitle>
-          <CardDescription>
-            Take control of your finances with our comprehensive budgeting and expense tracking tools
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="flex flex-col items-center p-4 border border-blue-200 rounded-lg bg-white">
-              <Calculator className="h-8 w-8 text-blue-600 mb-2" />
-              <h3 className="text-lg font-medium">Budget Planning</h3>
-              <p className="text-sm text-muted-foreground text-center">Create and manage your budget categories</p>
-            </div>
-            <div className="flex flex-col items-center p-4 border border-blue-200 rounded-lg bg-white">
-              <ChartLine className="h-8 w-8 text-blue-600 mb-2" />
-              <h3 className="text-lg font-medium">Expense Tracking</h3>
-              <p className="text-sm text-muted-foreground text-center">Record and visualize your spending patterns</p>
-            </div>
-            <div className="flex flex-col items-center p-4 border border-blue-200 rounded-lg bg-white">
-              <FileText className="h-8 w-8 text-blue-600 mb-2" />
-              <h3 className="text-lg font-medium">Financial Reports</h3>
-              <p className="text-sm text-muted-foreground text-center">Analyze your financial data with detailed reports</p>
-            </div>
-          </div>
-          
-          {!user && (
-            <div className="mt-6 flex justify-center">
-              <Link to="/auth">
-                <Button className="bg-blue-600 hover:bg-blue-700">
-                  Create Account to Save Your Data <ArrowRight className="ml-2 h-4 w-4" />
+      {/* Welcome Section */}
+      <div className="text-center py-8">
+        <h1 className="text-4xl font-bold text-blue-800 mb-4">
+          Welcome to Your Financial Dashboard
+        </h1>
+        <p className="text-lg text-blue-600 mb-6">
+          Take control of your finances with our comprehensive budgeting tools
+        </p>
+        {!user && (
+          <Card className="max-w-2xl mx-auto border-blue-200 bg-blue-50">
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <h3 className="text-lg font-medium mb-2 text-blue-800">Get Started Today</h3>
+                <p className="text-blue-700 mb-4">
+                  Sign up to start tracking your expenses, managing budgets, and achieving your financial goals.
+                </p>
+                <Button 
+                  onClick={() => window.location.href = '/auth'}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  Sign Up Now
                 </Button>
-              </Link>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-      
-      {/* Quick Calculator for Guests */}
-      {!user && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Try Our Calculator</CardTitle>
-            <CardDescription>
-              This is a simple calculator to try our features. Create an account to access full features and save your data.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="amount1">First Amount (₱)</Label>
-                  <Input 
-                    id="amount1" 
-                    type="number" 
-                    value={amount1}
-                    onChange={(e) => setAmount1(Number(e.target.value))}
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="operation">Operation</Label>
-                  <select 
-                    id="operation"
-                    className="w-full p-2 border rounded"
-                    value={operation}
-                    onChange={(e) => setOperation(e.target.value)}
-                  >
-                    <option value="add">Add</option>
-                    <option value="subtract">Subtract</option>
-                    <option value="multiply">Multiply</option>
-                    <option value="divide">Divide</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <Label htmlFor="amount2">Second Amount (₱)</Label>
-                  <Input 
-                    id="amount2" 
-                    type="number" 
-                    value={amount2}
-                    onChange={(e) => setAmount2(Number(e.target.value))}
-                  />
-                </div>
-                
-                <Button onClick={calculateResult}>Calculate</Button>
               </div>
-              
-              <div className="flex flex-col items-center justify-center p-6 border rounded-lg">
-                <h3 className="text-lg font-medium mb-2">Result:</h3>
-                <p className="text-3xl font-bold text-blue-600">
-                  {result !== null ? `₱ ${result.toFixed(2)}` : '—'}
-                </p>
-                <p className="mt-4 text-sm text-muted-foreground text-center">
-                  Create an account to access full budget planning and expense tracking features!
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Financial Overview */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-        <h1 className="text-2xl font-bold text-blue-800">Financial Dashboard</h1>
-        
-        <Tabs value={timeFrame} onValueChange={(value) => setTimeFrame(value as TimeFrame)} className="w-full sm:w-auto mt-4 sm:mt-0">
-          <TabsList>
-            <TabsTrigger value="daily">Daily</TabsTrigger>
-            <TabsTrigger value="weekly">Weekly</TabsTrigger>
-            <TabsTrigger value="monthly">Monthly</TabsTrigger>
-          </TabsList>
-        </Tabs>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Financial Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+          <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              {timeFrame.charAt(0).toUpperCase() + timeFrame.slice(1)} Expenses
+              Total Income
             </CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              ₱ {timeFrameTotal.toFixed(2)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {timeFrameExpenses.length} transactions
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Budget
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              ₱ {totalBudgets.toFixed(2)}
+              ₱{totalBudget.toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {budgets.length} budget categories
+              From {displayBudgets.length} sources
             </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+          <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Remaining Budget
+              Total Expenses
             </CardTitle>
-            <ChartLine className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">
+              ₱{totalExpenses.toFixed(2)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              From {displayExpenses.length} transactions
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Remaining Balance
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${remainingBudget >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              ₱ {remainingBudget.toFixed(2)}
+              ₱{remainingBudget.toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {remainingBudget >= 0 ? 'Under budget' : 'Over budget'}
+              {remainingBudget >= 0 ? 'Available to spend' : 'Over budget'}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Savings Rate
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
+              {totalBudget > 0 ? ((remainingBudget / totalBudget) * 100).toFixed(1) : '0.0'}%
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Of total income
             </p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-6">
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Spending by Category</CardTitle>
+            <CardTitle>Expense Breakdown</CardTitle>
           </CardHeader>
           <CardContent className="h-80">
-            {categories.length > 0 ? (
+            {chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart 
-                  data={chartData} 
-                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                >
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => [`₱${Number(value).toFixed(2)}`, 'Amount']} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-muted-foreground">No expense data available</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Budget vs Spending</CardTitle>
+          </CardHeader>
+          <CardContent className="h-80">
+            {budgetComparisonData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={budgetComparisonData}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
+                  <XAxis 
+                    dataKey="category" 
+                    angle={-45}
+                    textAnchor="end"
+                    height={80}
+                    fontSize={12}
+                  />
                   <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="amount" fill="#ef4444" />
+                  <Tooltip formatter={(value) => [`₱${Number(value).toFixed(2)}`, '']} />
+                  <Bar dataKey="budget" fill="#10b981" name="Budget" />
+                  <Bar dataKey="spent" fill="#ef4444" name="Spent" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
               <div className="flex items-center justify-center h-full">
-                <p className="text-muted-foreground">No expense data available for the selected time frame</p>
+                <p className="text-muted-foreground">No budget data available</p>
               </div>
             )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Feature Showcase */}
+      {/* Recent Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-red-600">Recent Expenses</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {displayExpenses.slice(0, 5).map((expense) => (
+                <div key={expense.id} className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                  <div>
+                    <div className="font-medium">{expense.category}</div>
+                    <div className="text-sm text-muted-foreground">{expense.description}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {format(new Date(expense.created_at), "MMM d, yyyy")}
+                    </div>
+                  </div>
+                  <div className="text-red-600 font-semibold">
+                    -₱{Number(expense.amount).toFixed(2)}
+                  </div>
+                </div>
+              ))}
+              {displayExpenses.length === 0 && (
+                <p className="text-muted-foreground text-center py-4">No expenses recorded</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-green-600">Income Sources</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {displayBudgets.slice(0, 5).map((budget) => (
+                <div key={budget.id} className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                  <div>
+                    <div className="font-medium">{budget.category}</div>
+                    <div className="text-sm text-muted-foreground">{budget.period}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {format(new Date(budget.created_at), "MMM d, yyyy")}
+                    </div>
+                  </div>
+                  <div className="text-green-600 font-semibold">
+                    +₱{Number(budget.amount).toFixed(2)}
+                  </div>
+                </div>
+              ))}
+              {displayBudgets.length === 0 && (
+                <p className="text-muted-foreground text-center py-4">No income sources added</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Quick Actions */}
       <Card>
         <CardHeader>
-          <CardTitle>Explore Our Features</CardTitle>
+          <CardTitle>Quick Actions</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <Link to="/expenses" className="block">
-              <div className="border border-blue-200 rounded-lg p-4 h-full hover:bg-blue-50 transition-colors">
-                <ChartLine className="h-6 w-6 text-blue-600 mb-2" />
-                <h3 className="font-medium">Expense Tracker</h3>
-                <p className="text-sm text-muted-foreground">Record and categorize all your expenses</p>
-              </div>
-            </Link>
-            
-            <Link to="/budgets" className="block">
-              <div className="border border-blue-200 rounded-lg p-4 h-full hover:bg-blue-50 transition-colors">
-                <DollarSign className="h-6 w-6 text-blue-600 mb-2" />
-                <h3 className="font-medium">Budget Planner</h3>
-                <p className="text-sm text-muted-foreground">Create and manage your budget categories</p>
-              </div>
-            </Link>
-            
-            <Link to="/reports" className="block">
-              <div className="border border-blue-200 rounded-lg p-4 h-full hover:bg-blue-50 transition-colors">
-                <FileText className="h-6 w-6 text-blue-600 mb-2" />
-                <h3 className="font-medium">Financial Reports</h3>
-                <p className="text-sm text-muted-foreground">Analyze your spending patterns and budget performance</p>
-              </div>
-            </Link>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Button 
+              onClick={() => window.location.href = '/expenses'}
+              className="h-20 text-lg"
+              variant="outline"
+            >
+              Add Expense
+            </Button>
+            <Button 
+              onClick={() => window.location.href = '/budgets'}
+              className="h-20 text-lg"
+              variant="outline"
+            >
+              Manage Income
+            </Button>
+            <Button 
+              onClick={() => window.location.href = '/reports'}
+              className="h-20 text-lg"
+              variant="outline"
+            >
+              View Reports
+            </Button>
           </div>
         </CardContent>
       </Card>

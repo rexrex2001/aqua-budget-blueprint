@@ -8,12 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
 type TimeFrame = "daily" | "weekly" | "monthly";
 
+// Categories for expense selection
 const categories = [
   "Food & Dining",
   "Transportation", 
@@ -32,7 +33,9 @@ const ExpenseTracker = () => {
   const { user } = useAuth();
   const { expenses, loading, addExpense, deleteExpense } = useExpenses();
   const [timeFrame, setTimeFrame] = useState<TimeFrame>("monthly");
+  const [isOneTime, setIsOneTime] = useState(false); // New state for one-time toggle
   
+  // Form state for adding new expense
   const [newExpense, setNewExpense] = useState({
     amount: "",
     category: "",
@@ -40,8 +43,23 @@ const ExpenseTracker = () => {
     date: format(new Date(), "yyyy-MM-dd"),
   });
 
-  // Filter expenses based on the selected timeframe
+  // Demo data for guests
+  const demoExpenses = [
+    { id: '1', amount: 500, category: 'Food & Dining', description: 'Lunch at restaurant', date: '2024-01-15', created_at: '2024-01-15T12:00:00Z', updated_at: '2024-01-15T12:00:00Z', user_id: 'demo' },
+    { id: '2', amount: 1200, category: 'Transportation', description: 'Taxi fare', date: '2024-01-14', created_at: '2024-01-14T10:00:00Z', updated_at: '2024-01-14T10:00:00Z', user_id: 'demo' },
+    { id: '3', amount: 800, category: 'Shopping', description: 'Grocery shopping', date: '2024-01-13', created_at: '2024-01-13T16:00:00Z', updated_at: '2024-01-13T16:00:00Z', user_id: 'demo' },
+  ];
+
+  // Use actual data for authenticated users, demo data for guests
+  const displayExpenses = user ? expenses : demoExpenses;
+
+  // Filter expenses based on the selected timeframe (only if not one-time mode)
   const filterExpensesByTimeFrame = () => {
+    if (isOneTime) {
+      // In one-time mode, show all expenses
+      return displayExpenses.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }
+
     const now = new Date();
     let startDate: Date;
 
@@ -56,12 +74,13 @@ const ExpenseTracker = () => {
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     }
 
-    return expenses.filter(expense => new Date(expense.date) >= startDate)
+    return displayExpenses.filter(expense => new Date(expense.date) >= startDate)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   };
 
   const filteredExpenses = filterExpensesByTimeFrame();
 
+  // Handle form submission for adding expense
   const handleExpenseSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -98,6 +117,7 @@ const ExpenseTracker = () => {
     }
   };
 
+  // Handle expense deletion
   const handleDeleteExpense = async (id: string) => {
     if (!user) {
       toast.error("Please sign in to delete expenses");
@@ -108,17 +128,46 @@ const ExpenseTracker = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-2xl font-bold text-blue-800">Expense Tracker</h1>
         
-        <Tabs value={timeFrame} onValueChange={(value) => setTimeFrame(value as TimeFrame)} className="w-full sm:w-auto mt-4 sm:mt-0">
-          <TabsList>
-            <TabsTrigger value="daily">Daily</TabsTrigger>
-            <TabsTrigger value="weekly">Weekly</TabsTrigger>
-            <TabsTrigger value="monthly">Monthly</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          {/* One-time toggle with indicator */}
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="one-time-mode"
+              checked={isOneTime}
+              onCheckedChange={setIsOneTime}
+            />
+            <Label htmlFor="one-time-mode" className="flex items-center gap-2">
+              One-time view
+              <div className={`w-2 h-2 rounded-full ${isOneTime ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            </Label>
+          </div>
+          
+          {/* Time frame tabs - disabled when one-time is on */}
+          <Tabs value={timeFrame} onValueChange={(value) => setTimeFrame(value as TimeFrame)} className="w-full sm:w-auto">
+            <TabsList className={isOneTime ? "opacity-50" : ""}>
+              <TabsTrigger value="daily" disabled={isOneTime}>Daily</TabsTrigger>
+              <TabsTrigger value="weekly" disabled={isOneTime}>Weekly</TabsTrigger>
+              <TabsTrigger value="monthly" disabled={isOneTime}>Monthly</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
       </div>
+
+      {!user && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <h3 className="text-lg font-medium mb-2 text-blue-800">Demo Mode</h3>
+              <p className="text-blue-700 mb-4">
+                You're viewing demo data. <Button variant="link" className="p-0 h-auto text-blue-700 underline" onClick={() => window.location.href = '/auth'}>Sign in</Button> to track your actual expenses.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-1">
@@ -203,7 +252,9 @@ const ExpenseTracker = () => {
 
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Recent Expenses</CardTitle>
+            <CardTitle>
+              {isOneTime ? "All Expenses" : `${timeFrame.charAt(0).toUpperCase() + timeFrame.slice(1)} Expenses`}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -231,7 +282,7 @@ const ExpenseTracker = () => {
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-lg font-medium text-red-600">
-                        ₱ {Number(expense.amount).toFixed(2)}
+                        -₱ {Number(expense.amount).toFixed(2)}
                       </div>
                       {user && (
                         <Button

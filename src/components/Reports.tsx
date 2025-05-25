@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +16,7 @@ type ExpenseData = {
   description: string;
   date: string;
   created_at: string;
+  type: 'expense';
 };
 
 type BudgetData = {
@@ -25,7 +25,10 @@ type BudgetData = {
   amount: number;
   period: string;
   created_at: string;
+  type: 'income';
 };
+
+type FinancialRecord = ExpenseData | BudgetData;
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
@@ -50,7 +53,7 @@ const Reports = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setExpenses(data || []);
+      setExpenses((data || []).map(item => ({ ...item, type: 'expense' as const })));
     } catch (error) {
       console.error('Error fetching expenses:', error);
       toast.error('Failed to fetch expenses');
@@ -72,7 +75,7 @@ const Reports = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setBudgets(data || []);
+      setBudgets((data || []).map(item => ({ ...item, type: 'income' as const })));
     } catch (error) {
       console.error('Error fetching budgets:', error);
       toast.error('Failed to fetch budgets');
@@ -107,16 +110,16 @@ const Reports = () => {
   const chartData = processChartData();
 
   // Demo data for guests
-  const demoExpenses = [
-    { id: '1', amount: 500, category: 'Food & Dining', description: 'Lunch at restaurant', date: '2024-01-15', created_at: '2024-01-15T12:00:00Z' },
-    { id: '2', amount: 1200, category: 'Transportation', description: 'Taxi fare', date: '2024-01-14', created_at: '2024-01-14T10:00:00Z' },
-    { id: '3', amount: 800, category: 'Shopping', description: 'Grocery shopping', date: '2024-01-13', created_at: '2024-01-13T16:00:00Z' },
+  const demoExpenses: ExpenseData[] = [
+    { id: '1', amount: 500, category: 'Food & Dining', description: 'Lunch at restaurant', date: '2024-01-15', created_at: '2024-01-15T12:00:00Z', type: 'expense' },
+    { id: '2', amount: 1200, category: 'Transportation', description: 'Taxi fare', date: '2024-01-14', created_at: '2024-01-14T10:00:00Z', type: 'expense' },
+    { id: '3', amount: 800, category: 'Shopping', description: 'Grocery shopping', date: '2024-01-13', created_at: '2024-01-13T16:00:00Z', type: 'expense' },
   ];
 
-  const demoBudgets = [
-    { id: '1', category: 'Food & Dining', amount: 5000, period: 'monthly', created_at: '2024-01-01T00:00:00Z' },
-    { id: '2', category: 'Transportation', amount: 3000, period: 'monthly', created_at: '2024-01-01T00:00:00Z' },
-    { id: '3', category: 'Shopping', amount: 4000, period: 'monthly', created_at: '2024-01-01T00:00:00Z' },
+  const demoBudgets: BudgetData[] = [
+    { id: '1', category: 'Food & Dining', amount: 5000, period: 'monthly', created_at: '2024-01-01T00:00:00Z', type: 'income' },
+    { id: '2', category: 'Transportation', amount: 3000, period: 'monthly', created_at: '2024-01-01T00:00:00Z', type: 'income' },
+    { id: '3', category: 'Shopping', amount: 4000, period: 'monthly', created_at: '2024-01-01T00:00:00Z', type: 'income' },
   ];
 
   const displayExpenses = user ? expenses : demoExpenses;
@@ -139,6 +142,14 @@ const Reports = () => {
 
   const displayChartData = user ? chartData : processDemoChartData();
 
+  // Merge and sort financial history by date
+  const getFinancialHistory = (): FinancialRecord[] => {
+    const allRecords: FinancialRecord[] = [...displayExpenses, ...displayBudgets];
+    return allRecords.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  };
+
+  const financialHistory = getFinancialHistory();
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
@@ -151,7 +162,7 @@ const Reports = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="expenses">Expenses</SelectItem>
-              <SelectItem value="budgets">Budgets</SelectItem>
+              <SelectItem value="budgets">Income</SelectItem>
             </SelectContent>
           </Select>
           
@@ -201,7 +212,7 @@ const Reports = () => {
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Budgets
+              Total Income
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -209,7 +220,7 @@ const Reports = () => {
               ₱ {displayBudgets.reduce((sum, budget) => sum + Number(budget.amount), 0).toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {displayBudgets.length} budget categories
+              {displayBudgets.length} income sources
             </p>
           </CardContent>
         </Card>
@@ -232,7 +243,7 @@ const Reports = () => {
               ).toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Budget - Expenses
+              Income - Expenses
             </p>
           </CardContent>
         </Card>
@@ -242,7 +253,7 @@ const Reports = () => {
       <Card>
         <CardHeader>
           <CardTitle>
-            {dataType === "expenses" ? "Expenses" : "Budgets"} by Category
+            {dataType === "expenses" ? "Expenses" : "Income"} by Category
           </CardTitle>
         </CardHeader>
         <CardContent className="h-80">
@@ -264,14 +275,14 @@ const Reports = () => {
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => [`₱${Number(value).toFixed(2)}`, dataType === "expenses" ? "Amount" : "Budget"]} />
+                  <Tooltip formatter={(value) => [`₱${Number(value).toFixed(2)}`, dataType === "expenses" ? "Amount" : "Income"]} />
                 </PieChart>
               ) : (
                 <BarChart data={displayChartData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis />
-                  <Tooltip formatter={(value) => [`₱${Number(value).toFixed(2)}`, dataType === "expenses" ? "Amount" : "Budget"]} />
+                  <Tooltip formatter={(value) => [`₱${Number(value).toFixed(2)}`, dataType === "expenses" ? "Amount" : "Income"]} />
                   <Legend />
                   <Bar dataKey="amount" fill={dataType === "expenses" ? "#ef4444" : "#10b981"} />
                 </BarChart>
@@ -287,62 +298,63 @@ const Reports = () => {
         </CardContent>
       </Card>
 
-      {/* Recent Records */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-red-600">Recent Expenses</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {displayExpenses.slice(0, 5).map((expense) => (
-                <div key={expense.id} className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+      {/* Financial History */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-blue-800">Financial History</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {financialHistory.slice(0, 10).map((record) => (
+              <div 
+                key={record.id} 
+                className={`flex justify-between items-center p-3 rounded-lg ${
+                  record.type === 'expense' ? 'bg-red-50' : 'bg-green-50'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`h-10 w-10 rounded-full flex items-center justify-center font-bold ${
+                    record.type === 'expense' 
+                      ? 'bg-red-100 text-red-800' 
+                      : 'bg-green-100 text-green-800'
+                  }`}>
+                    {record.category.charAt(0)}
+                  </div>
                   <div>
-                    <div className="font-medium">{expense.category}</div>
-                    <div className="text-sm text-muted-foreground">{expense.description}</div>
+                    <div className="font-medium">{record.category}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {record.type === 'expense' 
+                        ? (record as ExpenseData).description || "No description"
+                        : `Income source - ${(record as BudgetData).period || "No period"}`
+                      }
+                    </div>
                     <div className="text-xs text-muted-foreground">
-                      Added: {format(new Date(expense.created_at), "MMM d, yyyy")}
+                      Added: {format(new Date(record.created_at), "MMM d, yyyy")}
                     </div>
                   </div>
-                  <div className="text-red-600 font-semibold">
-                    ₱{Number(expense.amount).toFixed(2)}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs px-2 py-1 rounded-full ${
+                    record.type === 'expense'
+                      ? 'bg-red-100 text-red-800'
+                      : 'bg-green-100 text-green-800'
+                  }`}>
+                    {record.type === 'expense' ? 'Expense' : 'Income'}
+                  </span>
+                  <div className={`font-semibold ${
+                    record.type === 'expense' ? 'text-red-600' : 'text-green-600'
+                  }`}>
+                    {record.type === 'expense' ? '-' : '+'}₱{Number(record.amount).toFixed(2)}
                   </div>
                 </div>
-              ))}
-              {displayExpenses.length === 0 && (
-                <p className="text-muted-foreground text-center py-4">No expenses recorded</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-green-600">Recent Budgets</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {displayBudgets.slice(0, 5).map((budget) => (
-                <div key={budget.id} className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                  <div>
-                    <div className="font-medium">{budget.category}</div>
-                    <div className="text-sm text-muted-foreground">{budget.period}</div>
-                    <div className="text-xs text-muted-foreground">
-                      Added: {format(new Date(budget.created_at), "MMM d, yyyy")}
-                    </div>
-                  </div>
-                  <div className="text-green-600 font-semibold">
-                    ₱{Number(budget.amount).toFixed(2)}
-                  </div>
-                </div>
-              ))}
-              {displayBudgets.length === 0 && (
-                <p className="text-muted-foreground text-center py-4">No budgets created</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              </div>
+            ))}
+            {financialHistory.length === 0 && (
+              <p className="text-muted-foreground text-center py-4">No financial records found</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

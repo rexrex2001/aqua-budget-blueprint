@@ -78,6 +78,7 @@ const BudgetManager = () => {
       category: newBudget.category,
       amount,
       period: 'monthly', // Default period for backend compatibility
+      description: newBudget.description, // Pass description to the add function
     });
 
     if (result) {

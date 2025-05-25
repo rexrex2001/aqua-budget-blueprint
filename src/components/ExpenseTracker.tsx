@@ -33,7 +33,7 @@ const ExpenseTracker = () => {
   const { user } = useAuth();
   const { expenses, loading, addExpense, deleteExpense } = useExpenses();
   const [timeFrame, setTimeFrame] = useState<TimeFrame>("monthly");
-  const [isOneTime, setIsOneTime] = useState(false); // New state for one-time toggle
+  const [isOneTime, setIsOneTime] = useState(false); // Toggle for one-time static expenses
   
   // Form state for adding new expense
   const [newExpense, setNewExpense] = useState({
@@ -56,7 +56,7 @@ const ExpenseTracker = () => {
   // Filter expenses based on the selected timeframe (only if not one-time mode)
   const filterExpensesByTimeFrame = () => {
     if (isOneTime) {
-      // In one-time mode, show all expenses
+      // In one-time mode, show all expenses as static entries
       return displayExpenses.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }
 
@@ -132,7 +132,7 @@ const ExpenseTracker = () => {
         <h1 className="text-2xl font-bold text-blue-800">Expense Tracker</h1>
         
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          {/* One-time toggle with indicator */}
+          {/* One-time toggle with indicator - controls whether expenses are static or recurring */}
           <div className="flex items-center space-x-2">
             <Switch
               id="one-time-mode"
@@ -140,7 +140,7 @@ const ExpenseTracker = () => {
               onCheckedChange={setIsOneTime}
             />
             <Label htmlFor="one-time-mode" className="flex items-center gap-2">
-              One-time view
+              One-time use
               <div className={`w-2 h-2 rounded-full ${isOneTime ? 'bg-green-500' : 'bg-red-500'}`}></div>
             </Label>
           </div>
@@ -253,7 +253,7 @@ const ExpenseTracker = () => {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>
-              {isOneTime ? "All Expenses" : `${timeFrame.charAt(0).toUpperCase() + timeFrame.slice(1)} Expenses`}
+              {isOneTime ? "All Static Expenses" : `${timeFrame.charAt(0).toUpperCase() + timeFrame.slice(1)} Expenses`}
             </CardTitle>
           </CardHeader>
           <CardContent>

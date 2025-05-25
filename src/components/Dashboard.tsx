@@ -280,38 +280,6 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
-
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Button 
-              onClick={() => window.location.href = '/expenses'}
-              className="h-20 text-lg"
-              variant="outline"
-            >
-              Add Expense
-            </Button>
-            <Button 
-              onClick={() => window.location.href = '/budgets'}
-              className="h-20 text-lg"
-              variant="outline"
-            >
-              Manage Income
-            </Button>
-            <Button 
-              onClick={() => window.location.href = '/reports'}
-              className="h-20 text-lg"
-              variant="outline"
-            >
-              View Reports
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };
